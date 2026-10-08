@@ -11,7 +11,7 @@ import { CirclesService } from "../circles/circles.service";
 import { GeofencingService } from "../geofencing/geofencing.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ShareSessionsService } from "../share-sessions/share-sessions.service";
-import { LOCATION_EVENTS } from "./location-events";
+import { LOCATION_EVENTS, type SessionEndedEvent } from "./location-events";
 
 @Injectable()
 export class LocationsService {
@@ -100,8 +100,11 @@ export class LocationsService {
         this.events.emit(LOCATION_EVENTS.SessionEnded, {
           circleId: update.session.circleId,
           sessionId: update.session.id,
+          userId,
+          displayName: user.displayName,
+          destinationName: update.session.destinationName,
           status: update.status,
-        });
+        } satisfies SessionEndedEvent);
       }
     }
 

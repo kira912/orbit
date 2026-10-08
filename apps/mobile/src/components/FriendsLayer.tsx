@@ -5,7 +5,7 @@ import { isStale, memberColor, memberInitials } from "../lib/member-display";
 
 const LOW_BATTERY = 0.2;
 const STALE_COLOR = "#9ca3af";
-// Must be a font served by the basemap style (OpenFreeMap "liberty").
+// Must be a font served by the basemap style's glyphs (OpenFreeMap, see lib/map-style.ts).
 const FONT_BOLD = ["Noto Sans Bold"];
 
 interface FriendsLayerProps {

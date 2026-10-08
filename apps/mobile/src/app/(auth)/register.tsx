@@ -1,18 +1,17 @@
-import { useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  } from "react-native";
-import { TextField } from "../../components/TextField";
+import { useRef, useState } from "react";
+import { StyleSheet, type TextInput } from "react-native";
 import { Link } from "expo-router";
 import { useAuthStore } from "../../lib/auth-store";
 import { ApiError } from "../../lib/api-client";
+import { API_URL } from "../../constants/config";
+import { AuthLayout, AuthRow } from "../../components/AuthLayout";
+import { AppText, Button, TextField } from "../../components/ui";
+import { colors } from "../../theme";
 
 export default function RegisterScreen() {
   const register = useAuthStore((s) => s.register);
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,81 +20,96 @@ export default function RegisterScreen() {
 
   const onSubmit = async () => {
     setError(null);
+    if (password.length < 8) {
+      setError("Le mot de passe doit faire au moins 8 caractères");
+      return;
+    }
     setSubmitting(true);
     try {
       await register({ displayName: displayName.trim(), email: email.trim().toLowerCase(), password });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Inscription impossible");
+      setError(
+        err instanceof ApiError
+          ? err.status === 409
+            ? "Un compte existe déjà avec cet email"
+            : "Inscription impossible"
+          : `Serveur injoignable (${API_URL})`,
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <Text style={styles.title}>Créer un compte</Text>
-
-      <TextField
-        style={styles.input}
-        placeholder="Prénom / pseudo"
-        value={displayName}
-        onChangeText={setDisplayName}
-      />
-      <TextField
-        style={styles.input}
-        placeholder="Email"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextField
-        style={styles.input}
-        placeholder="Mot de passe (8 caractères min.)"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-
-      {error && <Text style={styles.error}>{error}</Text>}
-
-      <Pressable
-        style={[styles.button, submitting && styles.buttonDisabled]}
-        onPress={onSubmit}
-        disabled={submitting || !email || !password || !displayName}
-      >
-        <Text style={styles.buttonText}>{submitting ? "Création..." : "Créer mon compte"}</Text>
-      </Pressable>
-
-      <Link href="/(auth)/login" style={styles.link}>
-        Déjà un compte ? Se connecter
-      </Link>
-    </KeyboardAvoidingView>
+    <AuthLayout title="Bienvenue" subtitle="Crée ton compte en 20 secondes.">
+      <AuthRow index={0}>
+        <TextField
+          dark
+          icon="person"
+          placeholder="Prénom ou pseudo"
+          autoComplete="given-name"
+          returnKeyType="next"
+          value={displayName}
+          onChangeText={setDisplayName}
+          onSubmitEditing={() => emailRef.current?.focus()}
+        />
+      </AuthRow>
+      <AuthRow index={1}>
+        <TextField
+          ref={emailRef}
+          dark
+          icon="mail"
+          placeholder="Email"
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          returnKeyType="next"
+          value={email}
+          onChangeText={setEmail}
+          onSubmitEditing={() => passwordRef.current?.focus()}
+        />
+      </AuthRow>
+      <AuthRow index={2}>
+        <TextField
+          ref={passwordRef}
+          dark
+          icon="lock-closed"
+          placeholder="Mot de passe (8 caractères min.)"
+          secureTextEntry
+          autoComplete="new-password"
+          returnKeyType="go"
+          value={password}
+          onChangeText={setPassword}
+          onSubmitEditing={onSubmit}
+        />
+      </AuthRow>
+      {error && (
+        <AppText variant="bodyStrong" color="#FCA5A5" align="center">
+          {error}
+        </AppText>
+      )}
+      <AuthRow index={3}>
+        <Button
+          size="lg"
+          label="Créer mon compte"
+          loading={submitting}
+          disabled={!email || !password || !displayName}
+          onPress={onSubmit}
+          style={styles.button}
+        />
+      </AuthRow>
+      <AuthRow index={4}>
+        <Link href="/(auth)/login" style={styles.link}>
+          <AppText variant="body" color={colors.onNightMuted}>
+            Déjà un compte ? <AppText variant="bodyStrong" color={colors.cyan}>Se connecter</AppText>
+          </AppText>
+        </Link>
+      </AuthRow>
+    </AuthLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 24, gap: 12 },
-  title: { fontSize: 28, fontWeight: "700", textAlign: "center", marginBottom: 24 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: "#2563eb",
-    borderRadius: 8,
-    padding: 14,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: "white", fontWeight: "600", fontSize: 16 },
-  error: { color: "#dc2626", textAlign: "center" },
-  link: { textAlign: "center", marginTop: 16, color: "#2563eb" },
+  button: { marginTop: 6 },
+  link: { textAlign: "center", marginTop: 8 },
 });

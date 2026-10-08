@@ -116,7 +116,11 @@ describe("LocationsService", () => {
 
   it("emits a session-ended event when a session wraps up", async () => {
     sessions.handleLocationUpdate.mockResolvedValue([
-      { kind: "ended", session: { id: "session-1", circleId: "circle-1" } as never, status: "arrived" },
+      {
+        kind: "ended",
+        session: { id: "session-1", circleId: "circle-1", destinationName: "Maison" } as never,
+        status: "arrived",
+      },
     ]);
     const received: unknown[] = [];
     events.on(LOCATION_EVENTS.SessionEnded, (payload) => received.push(payload));
@@ -124,7 +128,14 @@ describe("LocationsService", () => {
     await service.recordPing("user-1", input);
 
     expect(received).toEqual([
-      { circleId: "circle-1", sessionId: "session-1", status: "arrived" },
+      {
+        circleId: "circle-1",
+        sessionId: "session-1",
+        userId: "user-1",
+        displayName: "Ada",
+        destinationName: "Maison",
+        status: "arrived",
+      },
     ]);
   });
 

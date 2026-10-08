@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { authResponseSchema, type LoginInput, type RegisterInput, type User } from "@orbit/shared";
 import { apiRequest, setSessionExpiredHandler } from "./api-client";
 import { tokenStorage } from "./token-storage";
+import { unregisterPushNotifications } from "./notifications";
 
 type AuthStatus = "idle" | "authenticated" | "unauthenticated";
 
@@ -51,6 +52,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    await unregisterPushNotifications();
     await tokenStorage.clear();
     set({ user: null, status: "unauthenticated" });
   },

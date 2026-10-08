@@ -1,4 +1,5 @@
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { CirclesService } from "./circles.service";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -23,7 +24,7 @@ describe("CirclesService", () => {
 
   beforeEach(() => {
     prisma = buildPrismaMock();
-    service = new CirclesService(prisma as unknown as PrismaService);
+    service = new CirclesService(prisma as unknown as PrismaService, new EventEmitter2());
   });
 
   describe("create", () => {
@@ -90,13 +91,13 @@ describe("CirclesService", () => {
       prisma.circle.findUnique
         .mockResolvedValueOnce(circleBeforeJoin)
         .mockResolvedValueOnce(circleAfterJoin);
-      prisma.circleMember.create.mockResolvedValue({});
+      prisma.circleMember.create.mockResolvedValue({ user: { displayName: "New" } });
 
       const result = await service.join("user-2", "ABCD1234");
 
-      expect(prisma.circleMember.create).toHaveBeenCalledWith({
-        data: { circleId: "circle-1", userId: "user-2" },
-      });
+      expect(prisma.circleMember.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { circleId: "circle-1", userId: "user-2" } }),
+      );
       expect(result.members.map((m) => m.userId)).toContain("user-2");
     });
 

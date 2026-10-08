@@ -1,13 +1,18 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { generateInviteCode } from "@orbit/shared";
 import type { CircleWithMembers, CreateCircleInput } from "@orbit/shared";
 import { PrismaService } from "../prisma/prisma.service";
+import { LOCATION_EVENTS, type CircleMemberJoinedEvent } from "../locations/location-events";
 
 const INVITE_CODE_MAX_ATTEMPTS = 5;
 
 @Injectable()
 export class CirclesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventEmitter2,
+  ) {}
 
   async create(ownerId: string, input: CreateCircleInput): Promise<CircleWithMembers> {
     const inviteCode = await this.generateUniqueInviteCode();
@@ -36,9 +41,16 @@ export class CirclesService {
 
     const alreadyMember = circle.members.some((m) => m.userId === userId);
     if (!alreadyMember) {
-      await this.prisma.circleMember.create({
+      const membership = await this.prisma.circleMember.create({
         data: { circleId: circle.id, userId },
+        include: { user: { select: { displayName: true } } },
       });
+      this.events.emit(LOCATION_EVENTS.CircleMemberJoined, {
+        circleId: circle.id,
+        circleName: circle.name,
+        userId,
+        displayName: membership.user.displayName,
+      } satisfies CircleMemberJoinedEvent);
       return this.join(userId, inviteCode);
     }
 

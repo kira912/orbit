@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from "@nestjs/common";
 import { startShareSessionInputSchema } from "@orbit/shared";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import type { AuthenticatedUser } from "../auth/types";
@@ -20,6 +20,16 @@ export class ShareSessionsController {
     return this.sessions.listActiveForUser(user.id);
   }
 
+  /** Who is sharing with this circle right now (including the requester). */
+  @Get("circle/:circleId")
+  async listForCircle(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("circleId", ParseUUIDPipe) circleId: string,
+  ) {
+    await this.circles.assertMembership(user.id, circleId);
+    return this.sessions.listActiveForCircle(circleId);
+  }
+
   @Post()
   async start(
     @CurrentUser() user: AuthenticatedUser,
@@ -31,7 +41,18 @@ export class ShareSessionsController {
   }
 
   @Post(":id/stop")
-  stop(@CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+  stop(@CurrentUser() user: AuthenticatedUser, @Param("id", ParseUUIDPipe) id: string) {
     return this.sessions.stop(user.id, id);
+  }
+
+  /** "Tout va bien": answers a "Rentre bien" alert. */
+  @Post(":id/ok")
+  ok(@CurrentUser() user: AuthenticatedUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.sessions.markOk(user.id, id);
+  }
+
+  @Post(":id/public-link")
+  publicLink(@CurrentUser() user: AuthenticatedUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.sessions.enablePublicLink(user.id, id);
   }
 }

@@ -1,187 +1,243 @@
-import { useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import type { Place } from "@orbit/shared";
+import { useCallback, useEffect, useState, type ComponentProps, type ReactNode } from "react";
+import { Alert, Linking, ScrollView, StatusBar, StyleSheet, View } from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useCircles } from "../../hooks/useCircles";
+import { useActiveShareSessions, useEnablePublicLink, useStopShareSession } from "../../hooks/useShareSessions";
 import { useAuthStore } from "../../lib/auth-store";
-import { useActiveCircleStore } from "../../lib/active-circle-store";
-import { usePlaces } from "../../hooks/usePlaces";
-import { useActiveShareSessions, useStartShareSession, useStopShareSession } from "../../hooks/useShareSessions";
-import { useSessionEtaStore } from "../../lib/session-eta-store";
-import { formatDistance, formatEta } from "../../lib/eta-format";
-import {
-  startBackgroundLocationTracking,
-  stopBackgroundLocationTracking,
-} from "../../tasks/background-location-task";
-import { ApiError } from "../../lib/api-client";
-
-const DURATION_OPTIONS: { label: string; minutes?: number }[] = [
-  { label: "15 min", minutes: 15 },
-  { label: "1 h", minutes: 60 },
-  { label: "Illimité", minutes: undefined },
-];
+import { getNotificationPermission, pushSupported, registerForPushNotifications } from "../../lib/notifications";
+import { sharePublicLink } from "../../lib/sharing";
+import { useTabBarClearance } from "../../components/TabBar";
+import { AppText, Avatar, Button, Card, IconButton, OrbitLogo } from "../../components/ui";
+import { colors, gradients, radius, layoutTransition } from "../../theme";
 
 export default function ProfileScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const clearance = useTabBarClearance();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const circleId = useActiveCircleStore((s) => s.circleId);
-  const { data: places } = usePlaces(circleId);
+  const { data: circles } = useCircles();
   const { data: sessions } = useActiveShareSessions();
-  const startSession = useStartShareSession();
   const stopSession = useStopShareSession();
-  const etaBySessionId = useSessionEtaStore((s) => s.bySessionId);
+  const enableLink = useEnablePublicLink();
+  const notificationsGranted = useNotificationPermission();
 
-  const [durationMinutes, setDurationMinutes] = useState<number | undefined>(undefined);
-  const [destinationPlace, setDestinationPlace] = useState<Place | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [starting, setStarting] = useState(false);
+  // Light status bar over the dark header, only while this tab is shown.
+  useFocusEffect(
+    useCallback(() => {
+      StatusBar.setBarStyle("light-content");
+      return () => StatusBar.setBarStyle("dark-content");
+    }, []),
+  );
 
-  const circleSessions = sessions?.filter((s) => s.circleId === circleId) ?? [];
-
-  const onStart = async () => {
-    if (!circleId) {
-      setError("Choisis un cercle dans l'onglet Cercles.");
-      return;
-    }
-    setError(null);
-    setStarting(true);
-    try {
-      await startBackgroundLocationTracking();
-      await startSession.mutateAsync({
-        circleId,
-        durationMinutes,
-        destination: destinationPlace
-          ? { latitude: destinationPlace.latitude, longitude: destinationPlace.longitude }
-          : undefined,
-        arrivalRadiusMeters: destinationPlace?.radiusMeters,
-      });
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : (err as Error).message);
-    } finally {
-      setStarting(false);
-    }
-  };
-
-  const onStop = async (sessionId: string) => {
-    await stopSession.mutateAsync(sessionId);
-    const stillActive = (sessions ?? []).some((s) => s.id !== sessionId && s.status === "active");
-    if (!stillActive) {
-      await stopBackgroundLocationTracking();
-    }
-  };
+  const circleName = (id: string) => circles?.find((c) => c.id === id)?.name ?? "Cercle";
 
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.name}>{user?.displayName}</Text>
-        <Text style={styles.email}>{user?.email}</Text>
-        <Pressable style={styles.logoutButton} onPress={() => logout()}>
-          <Text style={styles.logoutText}>Se déconnecter</Text>
-        </Pressable>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: clearance + 8 }}>
+      <LinearGradient
+        colors={gradients.night}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.hero, { paddingTop: insets.top + 24 }]}
+      >
+        <View style={styles.heroLogo} pointerEvents="none">
+          <OrbitLogo size={220} />
+        </View>
+        {user && (
+          <Animated.View entering={FadeInDown.duration(500)} style={styles.heroContent}>
+            <Avatar userId={user.id} name={user.displayName} size={72} ring />
+            <AppText variant="title" color={colors.onNight}>
+              {user.displayName}
+            </AppText>
+            <AppText variant="caption" color={colors.onNightMuted}>
+              {user.email}
+            </AppText>
+          </Animated.View>
+        )}
+      </LinearGradient>
+
+      <View style={styles.body}>
+        <Section title="Mes partages en cours" delay={80}>
+          {sessions && sessions.length > 0 ? (
+            sessions.map((session) => (
+              <Animated.View key={session.id} layout={layoutTransition} style={styles.session}>
+                <View style={styles.sessionIcon}>
+                  <Ionicons name="navigate" size={18} color={colors.onNight} />
+                </View>
+                <View style={styles.flex}>
+                  <AppText variant="bodyStrong" numberOfLines={1}>
+                    {session.destinationName ? `Vers ${session.destinationName}` : "Position en direct"}
+                  </AppText>
+                  <AppText variant="caption" color={colors.muted}>
+                    {circleName(session.circleId)}
+                    {session.publicToken ? " · lien public actif" : ""}
+                  </AppText>
+                </View>
+                <IconButton
+                  icon="link"
+                  size={36}
+                  background={colors.primarySoft}
+                  color={colors.primary}
+                  accessibilityLabel="Partager le lien"
+                  onPress={async () => {
+                    const token = session.publicToken ?? (await enableLink.mutateAsync(session.id)).publicToken;
+                    if (token) await sharePublicLink(token, session.destinationName);
+                  }}
+                />
+                <IconButton
+                  icon="stop"
+                  size={36}
+                  background={colors.dangerSoft}
+                  color={colors.danger}
+                  accessibilityLabel="Arrêter le partage"
+                  onPress={() => stopSession.mutate(session.id)}
+                />
+              </Animated.View>
+            ))
+          ) : (
+            <AppText variant="body" color={colors.muted}>
+              Tu ne partages pas ta position en ce moment.
+            </AppText>
+          )}
+        </Section>
+
+        <Section title="Notifications" delay={140}>
+          <Row
+            icon={notificationsGranted ? "notifications" : "notifications-off"}
+            title={notificationsGranted ? "Activées" : pushSupported ? "Désactivées" : "Indisponibles dans Expo Go"}
+            subtitle={
+              notificationsGranted
+                ? "Arrivées, départs et rendez-vous de tes cercles, même app fermée."
+                : pushSupported
+                  ? "Active-les pour savoir quand tes proches arrivent."
+                  : "Lance le build de développement (npx expo run:android) pour les recevoir."
+            }
+            action={
+              !notificationsGranted &&
+              pushSupported && (
+                <Button
+                  label="Activer"
+                  variant="secondary"
+                  onPress={async () => {
+                    const permission = await getNotificationPermission();
+                    if (permission?.canAskAgain) await registerForPushNotifications();
+                    else void Linking.openSettings();
+                  }}
+                />
+              )
+            }
+          />
+        </Section>
+
+        <Section title="Confidentialité" delay={200}>
+          <Row icon="time" title="Partage temporaire" subtitle="Ta position n'est visible que pendant un partage, qui s'arrête tout seul à l'arrivée ou à l'heure prévue." />
+          <Row icon="trash-bin" title="Historique court" subtitle="Tes positions sont effacées automatiquement au bout de 7 jours." />
+          <Row icon="link" title="Liens publics" subtitle="Un lien de suivi cesse de fonctionner dès que le partage s'arrête." />
+        </Section>
+
+        <Animated.View entering={FadeInDown.delay(260).duration(400)} style={styles.buttons}>
+          <Button variant="light" icon="planet" label="Gérer mes cercles" onPress={() => router.push("/circles")} />
+          <Button
+            variant="danger"
+            icon="log-out-outline"
+            label="Se déconnecter"
+            onPress={() =>
+              Alert.alert("Se déconnecter ?", undefined, [
+                { text: "Annuler", style: "cancel" },
+                { text: "Se déconnecter", style: "destructive", onPress: () => void logout() },
+              ])
+            }
+          />
+        </Animated.View>
       </View>
+    </ScrollView>
+  );
+}
 
-      <Text style={styles.sectionTitle}>Partages actifs {circleId ? "" : "(choisis un cercle)"}</Text>
-      <FlatList
-        data={circleSessions}
-        keyExtractor={(s) => s.id}
-        ListEmptyComponent={<Text style={styles.empty}>Aucun partage en cours dans ce cercle.</Text>}
-        renderItem={({ item }) => {
-          const eta = etaBySessionId[item.id];
-          return (
-            <View style={styles.sessionCard}>
-              <Text style={styles.sessionLabel}>
-                {item.destination
-                  ? eta
-                    ? `Arrivée dans ${formatEta(eta.etaSeconds)} (${formatDistance(eta.distanceMeters)})`
-                    : "En route..."
-                  : "Partage en direct, sans destination"}
-              </Text>
-              <Pressable onPress={() => onStop(item.id)}>
-                <Text style={styles.stopText}>Arrêter</Text>
-              </Pressable>
-            </View>
-          );
-        }}
-      />
+function Section({ title, delay, children }: { title: string; delay: number; children: ReactNode }) {
+  return (
+    <Animated.View entering={FadeInDown.delay(delay).duration(400)} style={styles.section}>
+      <AppText variant="label" color={colors.muted}>
+        {title}
+      </AppText>
+      <Card style={styles.card}>{children}</Card>
+    </Animated.View>
+  );
+}
 
-      <Text style={styles.sectionTitle}>Démarrer un partage</Text>
-      <View style={styles.optionsRow}>
-        {DURATION_OPTIONS.map((option) => (
-          <Pressable
-            key={option.label}
-            style={[styles.chip, durationMinutes === option.minutes && styles.chipActive]}
-            onPress={() => setDurationMinutes(option.minutes)}
-          >
-            <Text style={[styles.chipText, durationMinutes === option.minutes && styles.chipTextActive]}>
-              {option.label}
-            </Text>
-          </Pressable>
-        ))}
+function Row({
+  icon,
+  title,
+  subtitle,
+  action,
+}: {
+  icon: ComponentProps<typeof Ionicons>["name"];
+  title: string;
+  subtitle: string;
+  action?: ReactNode;
+}) {
+  return (
+    <View style={styles.row}>
+      <View style={styles.rowIcon}>
+        <Ionicons name={icon} size={18} color={colors.primary} />
       </View>
-
-      {places && places.length > 0 && (
-        <>
-          <Text style={styles.label}>Destination (optionnel, pour l'ETA et l'arrêt automatique)</Text>
-          <View style={styles.optionsRow}>
-            <Pressable
-              style={[styles.chip, destinationPlace === null && styles.chipActive]}
-              onPress={() => setDestinationPlace(null)}
-            >
-              <Text style={[styles.chipText, destinationPlace === null && styles.chipTextActive]}>
-                Aucune
-              </Text>
-            </Pressable>
-            {places.map((place) => (
-              <Pressable
-                key={place.id}
-                style={[styles.chip, destinationPlace?.id === place.id && styles.chipActive]}
-                onPress={() => setDestinationPlace(place)}
-              >
-                <Text
-                  style={[styles.chipText, destinationPlace?.id === place.id && styles.chipTextActive]}
-                >
-                  {place.name}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </>
-      )}
-
-      {error && <Text style={styles.error}>{error}</Text>}
-
-      <Pressable style={styles.button} onPress={onStart} disabled={starting}>
-        <Text style={styles.buttonText}>{starting ? "Démarrage..." : "Démarrer le partage"}</Text>
-      </Pressable>
+      <View style={styles.flex}>
+        <AppText variant="bodyStrong">{title}</AppText>
+        <AppText variant="caption" color={colors.muted}>
+          {subtitle}
+        </AppText>
+      </View>
+      {action}
     </View>
   );
 }
 
+function useNotificationPermission(): boolean {
+  const [granted, setGranted] = useState(false);
+  useEffect(() => {
+    const check = () => getNotificationPermission().then((p) => setGranted(p?.granted ?? false), () => undefined);
+    void check();
+    const id = setInterval(check, 5000);
+    return () => clearInterval(id);
+  }, []);
+  return granted;
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8f9fb", padding: 16, gap: 12 },
-  card: { backgroundColor: "white", borderRadius: 12, padding: 16, gap: 4 },
-  name: { fontSize: 18, fontWeight: "700" },
-  email: { color: "#666" },
-  logoutButton: { marginTop: 8, alignSelf: "flex-start" },
-  logoutText: { color: "#dc2626", fontWeight: "600" },
-  sectionTitle: { fontWeight: "600", fontSize: 15, marginTop: 8 },
-  empty: { color: "#666" },
-  sessionCard: {
-    backgroundColor: "white",
-    borderRadius: 10,
-    padding: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
+  container: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+  hero: {
+    paddingBottom: 36,
+    borderBottomLeftRadius: radius.xl,
+    borderBottomRightRadius: radius.xl,
+    overflow: "hidden",
   },
-  sessionLabel: { flex: 1, marginRight: 8 },
-  stopText: { color: "#dc2626", fontWeight: "600" },
-  optionsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  label: { color: "#444", marginTop: 4 },
-  chip: { backgroundColor: "white", borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: "#ddd" },
-  chipActive: { backgroundColor: "#2563eb", borderColor: "#2563eb" },
-  chipText: { color: "#111" },
-  chipTextActive: { color: "white" },
-  error: { color: "#dc2626" },
-  button: { backgroundColor: "#2563eb", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 8 },
-  buttonText: { color: "white", fontWeight: "600", fontSize: 16 },
+  heroLogo: { position: "absolute", right: -50, top: 10, opacity: 0.35 },
+  heroContent: { alignItems: "center", gap: 6 },
+  body: { padding: 16, gap: 20 },
+  section: { gap: 10 },
+  card: { gap: 16 },
+  session: { flexDirection: "row", alignItems: "center", gap: 10 },
+  sessionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  row: { flexDirection: "row", alignItems: "center", gap: 12 },
+  rowIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buttons: { gap: 10 },
 });

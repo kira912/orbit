@@ -1,50 +1,94 @@
 import "../tasks/background-location-task";
 import { useEffect } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
-import { Stack } from "expo-router";
+import { StyleSheet, View } from "react-native";
+import { Stack, useRouter } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import {
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+  useFonts,
+} from "@expo-google-fonts/plus-jakarta-sans";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "../lib/query-client";
 import { useAuthStore } from "../lib/auth-store";
+import { onNotificationTap, registerForPushNotifications } from "../lib/notifications";
+import { Toaster } from "../components/ui";
+import { colors } from "../theme";
+
+void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const status = useAuthStore((s) => s.status);
   const hydrate = useAuthStore((s) => s.hydrate);
+  const [fontsLoaded, fontError] = useFonts({
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+  });
+  const ready = status !== "idle" && (fontsLoaded || fontError != null);
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
 
-  if (status === "idle") {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
+  useEffect(() => {
+    if (ready) void SplashScreen.hideAsync();
+  }, [ready]);
 
+  if (!ready) return <View style={styles.splash} />;
+
+  const authenticated = status === "authenticated";
   return (
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <StatusBar style="auto" />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Protected guard={status === "authenticated"}>
-              <Stack.Screen name="(tabs)" />
+          <StatusBar style={authenticated ? "dark" : "light"} />
+          {authenticated && <PushNotifications />}
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: "fade_from_bottom",
+              contentStyle: { backgroundColor: colors.bg },
+            }}
+          >
+            <Stack.Protected guard={authenticated}>
+              <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
+              {["share", "circles", "meetup/new", "meetup/[id]", "place/new"].map((name) => (
+                <Stack.Screen
+                  key={name}
+                  name={name}
+                  options={{ presentation: "modal", animation: "slide_from_bottom", gestureEnabled: true }}
+                />
+              ))}
             </Stack.Protected>
-            <Stack.Protected guard={status !== "authenticated"}>
-              <Stack.Screen name="(auth)" />
+            <Stack.Protected guard={!authenticated}>
+              <Stack.Screen name="(auth)" options={{ animation: "fade" }} />
             </Stack.Protected>
           </Stack>
+          <Toaster />
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
 
+/** Registers this device for push, and opens the screen a tapped notification points to. */
+function PushNotifications() {
+  const router = useRouter();
+  useEffect(() => {
+    void registerForPushNotifications();
+    return onNotificationTap((url) => router.navigate(url as never));
+  }, [router]);
+  return null;
+}
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  loading: { flex: 1, alignItems: "center", justifyContent: "center" },
+  splash: { flex: 1, backgroundColor: colors.night },
 });

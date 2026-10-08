@@ -1,3 +1,4 @@
+jest.mock("./notifications", () => ({ unregisterPushNotifications: jest.fn() }));
 jest.mock("./api-client", () => ({
   apiRequest: jest.fn(),
   setSessionExpiredHandler: jest.fn(),

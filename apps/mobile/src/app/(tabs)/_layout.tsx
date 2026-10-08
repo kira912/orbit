@@ -1,28 +1,37 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { useCircles } from "../../hooks/useCircles";
 import { useLatestLocations } from "../../hooks/useLatestLocations";
+import { useActiveShareSessions } from "../../hooks/useShareSessions";
 import { useActiveCircleStore } from "../../lib/active-circle-store";
+import { reconcileTracking } from "../../lib/sharing";
 import { connectRealtime, disconnectRealtime } from "../../lib/socket";
-
-type IoniconName = keyof typeof Ionicons.glyphMap;
-
-function TabIcon({ name, color, size }: { name: IoniconName; color: string; size: number }) {
-  return <Ionicons name={name} color={color as string} size={size} />;
-}
+import { TabBar } from "../../components/TabBar";
+import { IncomingRequestPrompt } from "../../components/IncomingRequestPrompt";
+import { colors } from "../../theme";
 
 export default function TabsLayout() {
   const { data: circles } = useCircles();
   const circleId = useActiveCircleStore((s) => s.circleId);
   const setCircleId = useActiveCircleStore((s) => s.setCircleId);
+  const { data: mySessions } = useActiveShareSessions();
   useLatestLocations(circleId);
 
   useEffect(() => {
-    if (!circleId && circles && circles.length > 0) {
-      setCircleId(circles[0].id);
-    }
+    const stillMember = circles?.some((c) => c.id === circleId);
+    if (circles && circles.length > 0 && !stillMember) setCircleId(circles[0].id);
   }, [circles, circleId, setCircleId]);
+
+  // Sessions end server-side (arrival, expiry): stop the GPS when the last one
+  // ends, or at launch if none is left. Not on every empty list: a refetch can
+  // land between "GPS started" and "session created" while starting a share.
+  const previousCount = useRef<number | null>(null);
+  useEffect(() => {
+    if (!mySessions) return;
+    const previous = previousCount.current;
+    previousCount.current = mySessions.length;
+    if (mySessions.length === 0 && previous !== 0) void reconcileTracking(0);
+  }, [mySessions]);
 
   useEffect(() => {
     connectRealtime();
@@ -30,42 +39,22 @@ export default function TabsLayout() {
   }, []);
 
   return (
-    <Tabs screenOptions={{ tabBarActiveTintColor: "#2563eb" }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Carte",
-          tabBarIcon: ({ color, size }) => <TabIcon name="map" color={color as string} size={size} />,
+    <>
+      <Tabs
+        tabBar={(props) => <TabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+          sceneStyle: { backgroundColor: colors.bg },
+          animation: "shift",
         }}
-      />
-      <Tabs.Screen
-        name="members"
-        options={{
-          title: "Membres",
-          tabBarIcon: ({ color, size }) => <TabIcon name="list" color={color as string} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="circles"
-        options={{
-          title: "Cercles",
-          tabBarIcon: ({ color, size }) => <TabIcon name="people" color={color as string} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="places"
-        options={{
-          title: "Lieux",
-          tabBarIcon: ({ color, size }) => <TabIcon name="location" color={color as string} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profil",
-          tabBarIcon: ({ color, size }) => <TabIcon name="person-circle" color={color as string} size={size} />,
-        }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen name="index" options={{ title: "Carte" }} />
+        <Tabs.Screen name="circle" options={{ title: "Cercle" }} />
+        <Tabs.Screen name="activity" options={{ title: "Activité" }} />
+        <Tabs.Screen name="profile" options={{ title: "Profil" }} />
+      </Tabs>
+      {/* "Tu es où ?" received: answerable from any tab. */}
+      <IncomingRequestPrompt />
+    </>
   );
 }

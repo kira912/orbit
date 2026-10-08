@@ -13,16 +13,26 @@ import { locationPingInputSchema, WS_EVENTS } from "@orbit/shared";
 import { CirclesService } from "../circles/circles.service";
 import { LocationsService } from "../locations/locations.service";
 import type {
+  CircleMemberJoinedEvent,
   FriendLocationUpdatedEvent,
   GeofenceEventOccurredEvent,
+  LocationRequestUpdatedEvent,
+  MeetupUpdatedEvent,
+  SessionAlertEvent,
   SessionEndedEvent,
   SessionEtaUpdateEvent,
+  SessionStartedEvent,
 } from "../locations/location-events";
 import { LOCATION_EVENTS } from "../locations/location-events";
 import type { JwtPayload } from "../auth/types";
 
 function circleRoom(circleId: string): string {
   return `circle:${circleId}`;
+}
+
+/** Every socket of one user, so server-side changes (joining a circle) reach all their devices. */
+function userRoom(userId: string): string {
+  return `user:${userId}`;
 }
 
 @WebSocketGateway({ cors: { origin: "*" } })
@@ -58,7 +68,7 @@ export class RealtimeGateway implements OnGatewayConnection {
 
     socket.data.userId = payload.sub;
     const circleIds = await this.circles.circleIdsForUser(payload.sub);
-    await socket.join(circleIds.map(circleRoom));
+    await socket.join([userRoom(payload.sub), ...circleIds.map(circleRoom)]);
   }
 
   @SubscribeMessage(WS_EVENTS.LocationUpdate)
@@ -85,6 +95,12 @@ export class RealtimeGateway implements OnGatewayConnection {
     this.server.to(circleRoom(payload.circleId)).emit(WS_EVENTS.GeofenceEvent, payload);
   }
 
+  @OnEvent(LOCATION_EVENTS.SessionStarted)
+  handleSessionStarted(payload: SessionStartedEvent): void {
+    const { circleId, sessionId, userId, displayName } = payload;
+    this.server.to(circleRoom(circleId)).emit(WS_EVENTS.SessionStarted, { sessionId, userId, displayName });
+  }
+
   @OnEvent(LOCATION_EVENTS.SessionEtaUpdate)
   handleSessionEtaUpdate(payload: SessionEtaUpdateEvent): void {
     const { circleId, ...rest } = payload;
@@ -93,7 +109,33 @@ export class RealtimeGateway implements OnGatewayConnection {
 
   @OnEvent(LOCATION_EVENTS.SessionEnded)
   handleSessionEnded(payload: SessionEndedEvent): void {
-    const { circleId, ...rest } = payload;
-    this.server.to(circleRoom(circleId)).emit(WS_EVENTS.SessionEnded, rest);
+    const { circleId, sessionId, userId, displayName, status } = payload;
+    this.server.to(circleRoom(circleId)).emit(WS_EVENTS.SessionEnded, { sessionId, userId, displayName, status });
+  }
+
+  @OnEvent(LOCATION_EVENTS.MeetupUpdated)
+  handleMeetupUpdated(payload: MeetupUpdatedEvent): void {
+    this.server.to(circleRoom(payload.circleId)).emit(WS_EVENTS.MeetupUpdated, payload);
+  }
+
+  @OnEvent(LOCATION_EVENTS.SessionAlert)
+  handleSessionAlert(payload: SessionAlertEvent): void {
+    const { circleId, sessionId, userId, displayName, kind, destinationName } = payload;
+    this.server
+      .to(circleRoom(circleId))
+      .emit(WS_EVENTS.SessionAlert, { sessionId, userId, displayName, kind, destinationName });
+  }
+
+  /** Private between the two people involved, not the whole circle. */
+  @OnEvent(LOCATION_EVENTS.LocationRequestUpdated)
+  handleLocationRequestUpdated({ request }: LocationRequestUpdatedEvent): void {
+    this.server.to([userRoom(request.fromUserId), userRoom(request.toUserId)]).emit(WS_EVENTS.LocationRequestUpdated, request);
+  }
+
+  @OnEvent(LOCATION_EVENTS.CircleMemberJoined)
+  async handleCircleMemberJoined(payload: CircleMemberJoinedEvent): Promise<void> {
+    // Sockets join their circle rooms at connection time: add the new circle live.
+    this.server.in(userRoom(payload.userId)).socketsJoin(circleRoom(payload.circleId));
+    this.server.to(circleRoom(payload.circleId)).emit(WS_EVENTS.CircleUpdated, { circleId: payload.circleId });
   }
 }

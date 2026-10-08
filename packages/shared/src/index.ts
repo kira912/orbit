@@ -7,3 +7,7 @@ export * from "./schemas/location";
 export * from "./schemas/place";
 export * from "./schemas/geofence-event";
 export * from "./schemas/share-session";
+export * from "./schemas/meetup";
+export * from "./schemas/activity";
+export * from "./schemas/push";
+export * from "./schemas/location-request";

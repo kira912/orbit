@@ -19,6 +19,21 @@ model User {
   shareSessions  ShareSession[]
   refreshTokens  RefreshToken[]
   geofenceEvents GeofenceEvent[]
+  pushTokens     PushToken[]
+  meetups        Meetup[]        @relation("MeetupCreator")
+  sentRequests     LocationRequest[] @relation("RequestFrom")
+  receivedRequests LocationRequest[] @relation("RequestTo")
+}
+
+/// Expo push tokens, one per installed device.
+model PushToken {
+  token     String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model RefreshToken {
@@ -42,6 +57,8 @@ model Circle {
   members       CircleMember[]
   places        Place[]
   shareSessions ShareSession[]
+  meetups       Meetup[]
+  locationRequests LocationRequest[]
   createdAt     DateTime       @default(now())
 }
 
@@ -102,13 +119,52 @@ model ShareSession {
   circle              Circle             @relation(fields: [circleId], references: [id], onDelete: Cascade)
   destinationLat      Float?
   destinationLng      Float?
+  destinationName     String?
   arrivalRadiusMeters Float?
   expiresAt           DateTime?
   status              ShareSessionStatus @default(active)
   startedAt           DateTime           @default(now())
   endedAt             DateTime?
+  /// Unguessable token for the read-only web page at /s/:token; null = not shared publicly.
+  publicToken         String?            @unique
+  meetupId            String?
+  meetup              Meetup?            @relation(fields: [meetupId], references: [id], onDelete: SetNull)
+  /// "Rentre bien": alert the circle if the trip goes wrong (late, stalled, silent).
+  safetyAlerts        Boolean            @default(false)
+  /// Set from the first ETA; pushed back when the sharer says all is well.
+  expectedArrivalAt   DateTime?
+  lateAlertAt         DateTime?
+  stalledAlertAt      DateTime?
+  silentAlertAt       DateTime?
+  lastOkAt            DateTime?
 
   @@index([userId, status])
+  @@index([circleId, status])
+  @@index([meetupId])
+}
+
+enum MeetupStatus {
+  active
+  ended
+}
+
+/// A meeting point the circle converges to; each participant joins with a ShareSession.
+model Meetup {
+  id          String         @id @default(uuid())
+  circleId    String
+  circle      Circle         @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User           @relation("MeetupCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  name        String
+  latitude    Float
+  longitude   Float
+  status      MeetupStatus   @default(active)
+  createdAt   DateTime       @default(now())
+  endsAt      DateTime
+  endedAt     DateTime?
+  sessions    ShareSession[]
+
+  @@index([circleId, status])
 }
 
 enum GeofenceEventType {
@@ -126,4 +182,30 @@ model GeofenceEvent {
   occurredAt DateTime          @default(now())
 
   @@index([placeId, userId, occurredAt])
+}
+
+enum LocationRequestStatus {
+  pending
+  accepted
+  declined
+  expired
+}
+
+/// "Tu es où ?": a member asks another to share their position.
+model LocationRequest {
+  id          String                @id @default(uuid())
+  circleId    String
+  circle      Circle                @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  fromUserId  String
+  fromUser    User                  @relation("RequestFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUserId    String
+  toUser      User                  @relation("RequestTo", fields: [toUserId], references: [id], onDelete: Cascade)
+  status      LocationRequestStatus @default(pending)
+  createdAt   DateTime              @default(now())
+  expiresAt   DateTime
+  respondedAt DateTime?
+  sessionId   String?
+
+  @@index([toUserId, status])
+  @@index([fromUserId, toUserId, status])
 }

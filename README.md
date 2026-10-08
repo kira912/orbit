@@ -1,9 +1,11 @@
 # Orbit
 
-App mobile de partage de position, pensée pour aller plus loin que le partage
-live de WhatsApp/Google Maps : cercles de partage, géofencing (alertes
-arrivée/départ), historique/replay de trajet, et sessions de partage
-temporaires avec ETA et arrêt automatique à l'arrivée.
+App mobile de partage de position **temporaire et consenti** : on partage un
+trajet le temps qu'il faut, et ça s'arrête tout seul (à l'arrivée, à l'heure
+prévue, ou quand le rendez-vous se termine). Cercles de partage, géofencing
+(alertes arrivée/départ), rendez-vous à plusieurs avec l'ETA de chacun, lien
+de suivi web pour les personnes sans l'app, notifications push, historique
+court (7 jours).
 
 ## Stack
 
@@ -42,6 +44,41 @@ temporaires avec ETA et arrêt automatique à l'arrivée.
   (pas de tracking ambiant permanent) : c'est ce qui permet le geofencing tout
   en restant respectueux de la batterie et de la vie privée — on ne peut
   recevoir d'alerte sur quelqu'un que s'il partage activement avec le cercle.
+  Les lieux servent donc surtout de destinations (« Maison » en un tap), avec
+  l'arrêt automatique à l'arrivée.
+
+## Les fonctionnalités clés
+
+- **Partager mon trajet** (bouton principal de la carte) : destination parmi
+  les lieux du cercle, durée max, ETA en direct, arrêt automatique à
+  l'arrivée. Le GPS en arrière-plan se coupe dès que le serveur dit qu'il ne
+  reste plus de session active (`reconcileTracking`).
+- **Lien de suivi web** : `GET /s/:token` sert une page autonome (MapLibre GL
+  JS + OpenFreeMap) qui interroge `GET /public/sessions/:token` toutes les 5 s.
+  Le token (24 caractères aléatoires) n'expose que les positions reçues
+  *pendant* la session, et plus rien du tout une fois qu'elle est terminée.
+- **Rendez-vous** (`/meetups`) : un point de rendez-vous proposé au cercle
+  (appui long sur la carte) ; chaque participant le rejoint avec une session
+  dont la destination est ce point, et tout le monde voit les ETA. Terminer
+  le rendez-vous arrête les sessions encore en route.
+- **Notifications push** via le service Expo (`ExpoPushClient`, simple
+  `fetch`, pas de SDK) : arrivée/départ d'un lieu, début de partage, arrivée à
+  destination, nouveau rendez-vous, nouveau membre. Jamais à l'auteur de
+  l'action. Dans l'app ouverte, ce sont des bannières animées qui prennent le
+  relais (socket).
+- **Activité** : timeline des 7 derniers jours d'un cercle, reconstruite à
+  partir des tables existantes (`GET /circles/:id/activity`).
+- **Maintenance** (`MaintenanceService`) : toutes les minutes, expire les
+  sessions/rendez-vous échus même sans ping ; toutes les heures, supprime les
+  positions plus vieilles que `PING_RETENTION_DAYS` (7 par défaut).
+
+## Design
+
+Système de design dans `apps/mobile/src/theme` (tokens couleurs, typo Plus
+Jakarta Sans, rayons, ombres, ressorts) et composants dans
+`src/components/ui` (boutons avec retour haptique et ressort, chips et
+segmented animés, sheet à glisser, bannières, logo animé). Animations via
+Reanimated 4 (entrées décalées, transitions de layout, ressorts).
 
 ## Démarrer en local
 
@@ -110,7 +147,7 @@ démarreront.
 ## Tests
 
 ```bash
-pnpm test        # vitest (shared) + jest (api) + jest (mobile) — 58 tests
+pnpm test        # vitest (shared) + jest (api) + jest (mobile)
 pnpm typecheck    # tsc --noEmit sur les 3 packages
 ```
 
@@ -123,14 +160,25 @@ L'API a été testée de bout en bout manuellement (register → login → refre
 rotation → création de cercle/lieu → ping de position → réception temps réel
 du `friend-update` et du `geofence:event` sur le WebSocket → historique).
 
+### Activer les notifications push
+
+Le code est en place, mais un jeton Expo exige un projet EAS :
+
+1. `cd apps/mobile && npx eas init` (ajoute `extra.eas.projectId` dans
+   `app.json`) ;
+2. Android : ajouter les identifiants FCM au projet EAS
+   (`google-services.json`, voir la doc Expo « Push notifications setup ») ;
+   iOS : `eas credentials` s'occupe de la clé APNs.
+
+Sans `projectId`, l'app le signale dans les logs et continue sans push (les
+bannières in-app fonctionnent toujours).
+
 ## Limites connues du MVP (volontairement hors scope)
 
-- **Pas de notifications push** natives (APNs/FCM) : les alertes de
-  géofencing/arrivée s'affichent seulement in-app, en direct, tant que l'app
-  a une connexion WebSocket ouverte. C'est la prochaine brique naturelle
-  (`expo-notifications` + envoi serveur) une fois le MVP validé.
-- **ETA à vol d'oiseau**, pas d'itinéraire routier — pas d'API de routing
-  (Google Directions, Mapbox...) intégrée pour rester gratuit au démarrage.
+- **ETA de session à vol d'oiseau** côté serveur (l'itinéraire routier OSRM
+  n'est utilisé que pour « Itinéraire vers un membre », côté app).
+- **Lien de suivi servi par l'API** : en production, il faut une URL
+  publique (le lien est construit à partir de `API_URL`).
 - **UI non vérifiée visuellement** : les écrans compilent (`tsc`, bundling
   Metro réussi) et la logique est testée unitairement, mais je n'ai pas de
   simulateur/appareil dans cet environnement pour un test visuel réel — à

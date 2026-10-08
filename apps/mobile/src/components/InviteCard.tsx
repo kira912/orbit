@@ -1,0 +1,55 @@
+import { Share, StyleSheet, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import type { CircleWithMembers } from "@orbit/shared";
+import { colors, gradients, radius, shadows } from "../theme";
+import { AppText, PressableScale } from "./ui";
+
+export function shareInvite(circle: CircleWithMembers) {
+  void Share.share({
+    message: `Rejoins mon cercle « ${circle.name} » sur Orbit avec le code ${circle.inviteCode}`,
+  });
+}
+
+/** The circle's invite code, front and center. */
+export function InviteCard({ circle }: { circle: CircleWithMembers }) {
+  return (
+    <LinearGradient colors={gradients.night} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
+      <View style={styles.text}>
+        <AppText variant="label" color={colors.onNightMuted}>
+          Code d'invitation
+        </AppText>
+        <AppText variant="title" color={colors.onNight} style={styles.code} selectable>
+          {circle.inviteCode}
+        </AppText>
+        <AppText variant="caption" color={colors.onNightMuted}>
+          Partage-le pour agrandir le cercle
+        </AppText>
+      </View>
+      <PressableScale style={styles.button} onPress={() => shareInvite(circle)} accessibilityLabel="Inviter">
+        <Ionicons name="share-social" size={22} color={colors.ink} />
+      </PressableScale>
+    </LinearGradient>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: radius.xl,
+    padding: 20,
+    gap: 16,
+    ...shadows.md,
+  },
+  text: { flex: 1, gap: 4 },
+  code: { letterSpacing: 4 },
+  button: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
