@@ -5,6 +5,7 @@ import { useAuthStore } from "../../lib/auth-store";
 import { ApiError } from "../../lib/api-client";
 import { API_URL } from "../../constants/config";
 import { AuthLayout, AuthRow } from "../../components/AuthLayout";
+import { GoogleButton } from "../../components/GoogleButton";
 import { AppText, Button, TextField } from "../../components/ui";
 import { colors } from "../../theme";
 
@@ -99,6 +100,9 @@ export default function RegisterScreen() {
         />
       </AuthRow>
       <AuthRow index={4}>
+        <GoogleButton onError={setError} />
+      </AuthRow>
+      <AuthRow index={5}>
         <Link href="/(auth)/login" style={styles.link}>
           <AppText variant="body" color={colors.onNightMuted}>
             Déjà un compte ? <AppText variant="bodyStrong" color={colors.cyan}>Se connecter</AppText>

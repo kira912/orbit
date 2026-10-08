@@ -10,6 +10,7 @@ import { useCircles } from "../../hooks/useCircles";
 import { usePlaces } from "../../hooks/usePlaces";
 import { useLocationHistory } from "../../hooks/useLocationHistory";
 import { useMeetups } from "../../hooks/useMeetups";
+import { useMapReports } from "../../hooks/useMapReports";
 import {
   useActiveShareSessions,
   useCircleShareSessions,
@@ -36,6 +37,8 @@ import { MemberSheet } from "../../components/MemberSheet";
 import { LiveCards } from "../../components/map/LiveCards";
 import { MapTopBar } from "../../components/map/MapTopBar";
 import { MeetupMarker } from "../../components/map/MeetupMarker";
+import { ReportSheet } from "../../components/map/ReportSheet";
+import { ReportsLayer } from "../../components/map/ReportsLayer";
 import { RouteCard } from "../../components/map/RouteCard";
 import { useTabBarClearance } from "../../components/TabBar";
 import { AppText, Button, IconButton, Sheet } from "../../components/ui";
@@ -54,6 +57,7 @@ export default function MapScreen() {
   const activeCircle = circles?.find((c) => c.id === circleId) ?? null;
   const { data: places } = usePlaces(circleId);
   const { data: meetups } = useMeetups(circleId);
+  const { data: reports } = useMapReports(circleId);
   const { data: mySessions } = useActiveShareSessions();
   const { data: circleSessions } = useCircleShareSessions(circleId);
   const stopSession = useStopShareSession();
@@ -72,6 +76,8 @@ export default function MapScreen() {
   const [routeUserId, setRouteUserId] = useState<string | null>(null);
   const [routeProfile, setRouteProfile] = useState<RouteProfile>("foot");
   const [pressedPoint, setPressedPoint] = useState<[number, number] | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const selectedReport = reports?.find((r) => r.id === selectedReportId) ?? null;
   const focusRequest = useMapFocusStore((s) => s.userId);
   const focusWithRoute = useMapFocusStore((s) => s.withRoute);
   const consumeFocus = useMapFocusStore((s) => s.consume);
@@ -354,6 +360,10 @@ export default function MapScreen() {
 
             {meetups?.map((meetup) => <MeetupMarker key={meetup.id} meetup={meetup} />)}
 
+            {reports && reports.length > 0 && (
+              <ReportsLayer reports={reports} selectedId={selectedReportId} onSelect={setSelectedReportId} />
+            )}
+
             {pressedPoint && (
               <Marker id="pressed-point" lngLat={pressedPoint} anchor="bottom">
                 <Animated.View entering={enter.fade()} style={styles.droppedPin}>
@@ -450,21 +460,33 @@ export default function MapScreen() {
           ) : (
             <View />
           )}
-          {hasLocationPermission && !followMe && (
-            <Animated.View entering={enter.fade()} exiting={FadeOut}>
+          <View style={styles.mapButtons}>
+            {activeCircle && (
               <IconButton
-                icon="locate"
+                icon="warning"
                 floating
                 size={50}
-                color={colors.primary}
-                accessibilityLabel="Recentrer sur ma position"
-                onPress={() => {
-                  setFocusedUserId(null);
-                  setFollowMe(true);
-                }}
+                color={colors.warning}
+                accessibilityLabel="Signaler quelque chose à ma position"
+                onPress={() => router.push("/report/new")}
               />
-            </Animated.View>
-          )}
+            )}
+            {hasLocationPermission && !followMe && (
+              <Animated.View entering={enter.fade()} exiting={FadeOut}>
+                <IconButton
+                  icon="locate"
+                  floating
+                  size={50}
+                  color={colors.primary}
+                  accessibilityLabel="Recentrer sur ma position"
+                  onPress={() => {
+                    setFocusedUserId(null);
+                    setFollowMe(true);
+                  }}
+                />
+              </Animated.View>
+            )}
+          </View>
         </View>
 
         {routeUserId ? (
@@ -508,6 +530,8 @@ export default function MapScreen() {
         }}
       />
 
+      <ReportSheet report={selectedReport} myId={user?.id} onClose={() => setSelectedReportId(null)} />
+
       <Sheet visible={pressedPoint != null} onClose={() => setPressedPoint(null)}>
         <AppText variant="headline">Ce point sur la carte</AppText>
         <AppText variant="caption" color={colors.muted} style={styles.sheetSub}>
@@ -521,6 +545,16 @@ export default function MapScreen() {
               const [lng, lat] = pressedPoint!;
               setPressedPoint(null);
               router.push({ pathname: "/meetup/new", params: { lat: String(lat), lng: String(lng) } });
+            }}
+          />
+          <Button
+            variant="secondary"
+            icon="warning"
+            label="Signaler quelque chose ici"
+            onPress={() => {
+              const [lng, lat] = pressedPoint!;
+              setPressedPoint(null);
+              router.push({ pathname: "/report/new", params: { lat: String(lat), lng: String(lng) } });
             }}
           />
           <Button
@@ -544,9 +578,10 @@ const styles = StyleSheet.create({
   map: { flex: 1 },
   flex: { flex: 1 },
   bottom: { position: "absolute", left: 0, right: 0, gap: 12 },
+  mapButtons: { gap: 10, alignItems: "center" },
   fabRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     justifyContent: "space-between",
     paddingHorizontal: 16,
   },

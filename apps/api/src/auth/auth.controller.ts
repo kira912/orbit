@@ -1,5 +1,6 @@
 import { Body, Controller, Post } from "@nestjs/common";
 import {
+  googleAuthInputSchema,
   loginInputSchema,
   refreshInputSchema,
   registerInputSchema,
@@ -19,6 +20,11 @@ export class AuthController {
   @Post("login")
   login(@Body(new ZodValidationPipe(loginInputSchema)) body: unknown) {
     return this.authService.login(body as never);
+  }
+
+  @Post("google")
+  google(@Body(new ZodValidationPipe(googleAuthInputSchema)) body: unknown) {
+    return this.authService.loginWithGoogle((body as { idToken: string }).idToken);
   }
 
   @Post("refresh")

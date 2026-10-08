@@ -12,9 +12,11 @@ const okSchema = z.object({ success: z.boolean() });
  * Expo Go dropped remote notifications on Android in SDK 53: merely importing
  * expo-notifications there logs an error. The module is therefore loaded
  * lazily, and only in a development/production build (which this app needs
- * anyway for the map and background location).
+ * anyway for the map and background location). Not on web yet: the PWA
+ * would need Web Push, which Expo push tokens don't cover.
  */
-export const pushSupported = Constants.executionEnvironment !== ExecutionEnvironment.StoreClient;
+export const pushSupported =
+  Platform.OS !== "web" && Constants.executionEnvironment !== ExecutionEnvironment.StoreClient;
 
 let cached: NotificationsModule | null | undefined;
 function notifications(): NotificationsModule | null {

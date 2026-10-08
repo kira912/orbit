@@ -3,6 +3,7 @@ import { authResponseSchema, type LoginInput, type RegisterInput, type User } fr
 import { apiRequest, setSessionExpiredHandler } from "./api-client";
 import { tokenStorage } from "./token-storage";
 import { unregisterPushNotifications } from "./notifications";
+import { getGoogleIdToken, signOutOfGoogle } from "./google-sign-in";
 
 type AuthStatus = "idle" | "authenticated" | "unauthenticated";
 
@@ -12,6 +13,8 @@ interface AuthState {
   hydrate: () => Promise<void>;
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
+  /** false when the user backed out of the Google account picker. */
+  loginWithGoogle: () => Promise<boolean>;
   logout: () => Promise<void>;
 }
 
@@ -51,8 +54,22 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user: response.user, status: "authenticated" });
   },
 
+  loginWithGoogle: async () => {
+    const idToken = await getGoogleIdToken();
+    if (!idToken) return false;
+    const response = await apiRequest("/auth/google", authResponseSchema, {
+      method: "POST",
+      body: { idToken },
+      skipAuth: true,
+    });
+    await tokenStorage.setSession(response.user, response.tokens);
+    set({ user: response.user, status: "authenticated" });
+    return true;
+  },
+
   logout: async () => {
     await unregisterPushNotifications();
+    await signOutOfGoogle();
     await tokenStorage.clear();
     set({ user: null, status: "unauthenticated" });
   },

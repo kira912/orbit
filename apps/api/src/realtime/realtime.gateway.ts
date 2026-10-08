@@ -17,6 +17,7 @@ import type {
   FriendLocationUpdatedEvent,
   GeofenceEventOccurredEvent,
   LocationRequestUpdatedEvent,
+  MapReportChangedEvent,
   MeetupUpdatedEvent,
   SessionAlertEvent,
   SessionEndedEvent,
@@ -130,6 +131,18 @@ export class RealtimeGateway implements OnGatewayConnection {
   @OnEvent(LOCATION_EVENTS.LocationRequestUpdated)
   handleLocationRequestUpdated({ request }: LocationRequestUpdatedEvent): void {
     this.server.to([userRoom(request.fromUserId), userRoom(request.toUserId)]).emit(WS_EVENTS.LocationRequestUpdated, request);
+  }
+
+  @OnEvent(LOCATION_EVENTS.MapReportChanged)
+  handleMapReportChanged({ report, change, actorId, actorName }: MapReportChangedEvent): void {
+    this.server.to(circleRoom(report.circleId)).emit(WS_EVENTS.MapReportsUpdated, {
+      circleId: report.circleId,
+      reportId: report.id,
+      change,
+      userId: actorId,
+      displayName: actorName,
+      kind: report.kind,
+    });
   }
 
   @OnEvent(LOCATION_EVENTS.CircleMemberJoined)

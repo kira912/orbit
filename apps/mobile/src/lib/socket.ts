@@ -13,6 +13,7 @@ import { queryClient } from "./query-client";
 import { useAuthStore } from "./auth-store";
 import { useToastStore } from "../components/ui/Toaster";
 import { colors } from "../theme";
+import { REPORT_KINDS } from "./report-kinds";
 
 let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 
@@ -104,6 +105,13 @@ export async function connectRealtime(): Promise<void> {
     } else if (request.status === "declined") {
       toast({ title: `${request.toName} ne peut pas partager pour le moment`, icon: "time", color: colors.muted });
     }
+  });
+
+  socket.on(WS_EVENTS.MapReportsUpdated, (payload) => {
+    refresh("map-reports", "activity");
+    if (payload.change !== "created" || isMe(payload.userId)) return;
+    const meta = REPORT_KINDS[payload.kind];
+    toast({ title: `${payload.displayName} signale ${meta.phrase}`, body: "Regarde sur la carte", icon: meta.icon, color: meta.color });
   });
 
   socket.on(WS_EVENTS.MeetupUpdated, () => refresh("meetups", "activity"));

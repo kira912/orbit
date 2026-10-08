@@ -6,6 +6,7 @@ import { CirclesModule } from "./circles/circles.module";
 import { GeofencingModule } from "./geofencing/geofencing.module";
 import { LocationRequestsModule } from "./location-requests/location-requests.module";
 import { LocationsModule } from "./locations/locations.module";
+import { MapReportsModule } from "./map-reports/map-reports.module";
 import { MaintenanceModule } from "./maintenance/maintenance.module";
 import { MeetupsModule } from "./meetups/meetups.module";
 import { NotificationsModule } from "./notifications/notifications.module";
@@ -29,6 +30,7 @@ import { UsersModule } from "./users/users.module";
     LocationsModule,
     MeetupsModule,
     LocationRequestsModule,
+    MapReportsModule,
     NotificationsModule,
     MaintenanceModule,
     RealtimeModule,

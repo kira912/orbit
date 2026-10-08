@@ -2,6 +2,7 @@ import type { LocationPingInput, FriendLocation } from "./schemas/location";
 import type { GeofenceEvent } from "./schemas/geofence-event";
 import type { SessionAlert, SessionEtaUpdate, SessionEnded, SessionStarted } from "./schemas/share-session";
 import type { LocationRequest } from "./schemas/location-request";
+import type { MapReportsUpdated } from "./schemas/map-report";
 import type { MeetupUpdated } from "./schemas/meetup";
 
 /**
@@ -27,6 +28,8 @@ export const WS_EVENTS = {
   SessionAlert: "session:alert",
   /** server -> client (requester and target only): a "Tu es où ?" request changed. */
   LocationRequestUpdated: "location-request:updated",
+  /** server -> client: a map report was added, confirmed or removed in one of your circles. */
+  MapReportsUpdated: "map-reports:updated",
   /** server -> client: someone joined one of your circles. */
   CircleUpdated: "circle:updated",
 } as const;
@@ -40,6 +43,7 @@ export interface ServerToClientEvents {
   [WS_EVENTS.MeetupUpdated]: (payload: MeetupUpdated) => void;
   [WS_EVENTS.SessionAlert]: (payload: SessionAlert) => void;
   [WS_EVENTS.LocationRequestUpdated]: (payload: LocationRequest) => void;
+  [WS_EVENTS.MapReportsUpdated]: (payload: MapReportsUpdated) => void;
   [WS_EVENTS.CircleUpdated]: (payload: { circleId: string }) => void;
 }
 

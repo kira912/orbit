@@ -96,3 +96,6 @@ export async function stopBackgroundLocationTracking(): Promise<void> {
 export async function isBackgroundLocationTrackingActive(): Promise<boolean> {
   return Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
 }
+
+/** The OS keeps the task running across app restarts: nothing to resume (see the web version). */
+export async function resumeLocationTracking(): Promise<void> {}

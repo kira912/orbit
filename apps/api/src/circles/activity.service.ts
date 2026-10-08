@@ -18,7 +18,7 @@ export class ActivityService {
     const since = new Date(Date.now() - ACTIVITY_WINDOW_DAYS * 86_400_000);
     const user = { select: { displayName: true } };
 
-    const [geofence, sessions, meetups, members] = await Promise.all([
+    const [geofence, sessions, meetups, members, reports] = await Promise.all([
       this.prisma.geofenceEvent.findMany({
         where: { place: { circleId }, occurredAt: { gte: since } },
         include: { user, place: { select: { name: true } } },
@@ -41,6 +41,12 @@ export class ActivityService {
         where: { circleId, joinedAt: { gte: since } },
         include: { user, circle: { select: { name: true } } },
         orderBy: { joinedAt: "desc" },
+        take: ACTIVITY_LIMIT,
+      }),
+      this.prisma.mapReport.findMany({
+        where: { circleId, createdAt: { gte: since } },
+        include: { user },
+        orderBy: { createdAt: "desc" },
         take: ACTIVITY_LIMIT,
       }),
     ]);
@@ -89,6 +95,15 @@ export class ActivityService {
         userId: m.userId,
         displayName: m.user.displayName,
         circleName: m.circle.name,
+      })),
+      ...reports.map((r): ActivityItem => ({
+        kind: "map-report",
+        id: `report-${r.id}`,
+        at: r.createdAt,
+        userId: r.userId,
+        displayName: r.user.displayName,
+        reportKind: r.kind,
+        note: r.note,
       })),
     ];
 

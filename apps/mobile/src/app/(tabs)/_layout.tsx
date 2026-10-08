@@ -23,14 +23,15 @@ export default function TabsLayout() {
   }, [circles, circleId, setCircleId]);
 
   // Sessions end server-side (arrival, expiry): stop the GPS when the last one
-  // ends, or at launch if none is left. Not on every empty list: a refetch can
+  // ends, or at launch if none is left (and on web, restart it after a reload
+  // while one is active). Not on every empty list: a refetch can
   // land between "GPS started" and "session created" while starting a share.
   const previousCount = useRef<number | null>(null);
   useEffect(() => {
     if (!mySessions) return;
     const previous = previousCount.current;
     previousCount.current = mySessions.length;
-    if (mySessions.length === 0 && previous !== 0) void reconcileTracking(0);
+    if (mySessions.length > 0 || previous !== 0) void reconcileTracking(mySessions.length);
   }, [mySessions]);
 
   useEffect(() => {

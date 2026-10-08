@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { mapReportKindSchema } from "./map-report";
 
 const base = {
   id: z.string(),
@@ -21,5 +22,11 @@ export const activityItemSchema = z.discriminatedUnion("kind", [
     destinationName: z.string().nullable(),
   }),
   z.object({ ...base, kind: z.literal("safety-ok") }),
+  z.object({
+    ...base,
+    kind: z.literal("map-report"),
+    reportKind: mapReportKindSchema,
+    note: z.string().nullable(),
+  }),
 ]);
 export type ActivityItem = z.infer<typeof activityItemSchema>;

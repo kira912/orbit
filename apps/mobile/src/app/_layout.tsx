@@ -1,4 +1,5 @@
 import "../tasks/background-location-task";
+import "../lib/web-polyfills";
 import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
@@ -59,7 +60,7 @@ export default function RootLayout() {
           >
             <Stack.Protected guard={authenticated}>
               <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
-              {["share", "circles", "meetup/new", "meetup/[id]", "place/new"].map((name) => (
+              {["share", "circles", "meetup/new", "meetup/[id]", "place/new", "report/new"].map((name) => (
                 <Stack.Screen
                   key={name}
                   name={name}

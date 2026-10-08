@@ -1,4 +1,4 @@
-import type { FriendLocation, GeofenceEvent, LocationRequest, SafetyAlertKind } from "@orbit/shared";
+import type { FriendLocation, GeofenceEvent, LocationRequest, MapReport, SafetyAlertKind } from "@orbit/shared";
 
 /**
  * Internal server-side pub/sub contract between the domain services
@@ -18,6 +18,7 @@ export const LOCATION_EVENTS = {
   CircleMemberJoined: "realtime.circle-member-joined",
   SessionAlert: "realtime.session-alert",
   LocationRequestUpdated: "realtime.location-request-updated",
+  MapReportChanged: "realtime.map-report-changed",
 } as const;
 
 export type FriendLocationUpdatedEvent = FriendLocation;
@@ -82,4 +83,11 @@ export interface SessionAlertEvent {
 export interface LocationRequestUpdatedEvent {
   request: LocationRequest;
   change: "created" | "accepted" | "declined";
+}
+
+export interface MapReportChangedEvent {
+  report: MapReport;
+  change: "created" | "confirmed" | "resolved";
+  actorId: string;
+  actorName: string;
 }

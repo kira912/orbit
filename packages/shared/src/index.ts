@@ -11,3 +11,4 @@ export * from "./schemas/meetup";
 export * from "./schemas/activity";
 export * from "./schemas/push";
 export * from "./schemas/location-request";
+export * from "./schemas/map-report";

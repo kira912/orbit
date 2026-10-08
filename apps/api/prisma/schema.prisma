@@ -10,7 +10,10 @@ datasource db {
 model User {
   id             String          @id @default(uuid())
   email          String          @unique
-  passwordHash   String
+  /// Null for accounts created with Google only.
+  passwordHash   String?
+  /// Google account id ("sub" claim), set once signed in with Google.
+  googleId       String?         @unique
   displayName    String
   createdAt      DateTime        @default(now())
   ownedCircles   Circle[]        @relation("CircleOwner")
@@ -21,6 +24,7 @@ model User {
   geofenceEvents GeofenceEvent[]
   pushTokens     PushToken[]
   meetups        Meetup[]        @relation("MeetupCreator")
+  mapReports       MapReport[]
   sentRequests     LocationRequest[] @relation("RequestFrom")
   receivedRequests LocationRequest[] @relation("RequestTo")
 }
@@ -59,6 +63,7 @@ model Circle {
   shareSessions ShareSession[]
   meetups       Meetup[]
   locationRequests LocationRequest[]
+  mapReports    MapReport[]
   createdAt     DateTime       @default(now())
 }
 
@@ -208,4 +213,35 @@ model LocationRequest {
 
   @@index([toUserId, status])
   @@index([fromUserId, toUserId, status])
+}
+
+enum MapReportKind {
+  danger
+  accident
+  traffic
+  roadwork
+  closed
+  other
+}
+
+/// Something worth knowing at a spot (accident, roadwork...), shared with one circle.
+model MapReport {
+  id              String        @id @default(uuid())
+  circleId        String
+  circle          Circle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind            MapReportKind
+  note            String?
+  latitude        Float
+  longitude       Float
+  createdAt       DateTime      @default(now())
+  /// Pushed back each time someone confirms it's still there.
+  expiresAt       DateTime
+  confirmations   Int           @default(0)
+  lastConfirmedAt DateTime?
+  resolvedAt      DateTime?
+  resolvedById    String?
+
+  @@index([circleId, expiresAt])
 }

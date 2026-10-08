@@ -144,6 +144,66 @@ Sans dev client, l'app fonctionne quand même pour l'essentiel (auth, cercles,
 lieux) mais ni la carte ni le partage de position en arrière-plan ne
 démarreront.
 
+## Version web (PWA)
+
+Pour les utilisateurs iPhone sans passer par l'App Store, la même app tourne
+dans le navigateur et s'installe sur l'écran d'accueil (Safari → Partager →
+« Sur l'écran d'accueil »).
+
+```bash
+pnpm --filter @orbit/mobile web        # dev, http://localhost:8081
+pnpm --filter @orbit/mobile build:web  # export statique dans apps/mobile/dist
+```
+
+Les écrans sont partagés ; seules les briques natives ont une version web :
+
+| Natif | Web |
+|---|---|
+| `@maplibre/maplibre-react-native` | `src/web/maplibre` (maplibre-gl, alias dans `metro.config.js`) |
+| `token-storage.ts` (keychain) | `token-storage.web.ts` (localStorage) |
+| `background-location-task.ts` | `.web.ts` : position au premier plan + écran maintenu allumé (Wake Lock) |
+| `google-sign-in.ts` | `.web.ts` : flux OAuth par redirection |
+
+**Limites** : le navigateur ne partage la position que **tant que l'app est à
+l'écran** (écran verrouillé ou autre app = plus de mises à jour) ; pas encore de
+notifications push sur le web (les alertes in-app fonctionnent app ouverte).
+
+La géolocalisation exige **HTTPS** (sauf `localhost`) : un iPhone sur
+`http://192.168.x.x` n'aura pas de position.
+
+### Déployer la PWA sur Vercel
+
+Seule la PWA va sur Vercel. L'API (NestJS + socket.io + Postgres) a besoin
+d'un serveur qui tourne en continu et reste hébergée ailleurs, en HTTPS.
+La config est dans `apps/mobile/vercel.json`.
+
+1. Vercel → *Add New Project* → importer le dépôt, puis :
+   - **Root Directory** : `apps/mobile`, en laissant cochée *Include files
+     outside the root directory* (le monorepo et `packages/shared` en ont besoin) ;
+   - **Framework Preset** : *Other*. Les commandes d'install et de build
+     viennent de `vercel.json`, ne pas les surcharger.
+2. *Environment Variables*, valables pour le build (elles sont figées dans le
+   bundle, donc un changement demande un redéploiement) :
+   - `EXPO_PUBLIC_API_URL` = URL **https** de l'API de prod. Le build échoue
+     si elle manque ou n'est pas en https ;
+   - `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` = l'ID du client OAuth Web.
+3. Côté API de prod : `CORS_ORIGIN` doit autoriser le domaine Vercel (ou
+   rester `*`) ; le WebSocket passe automatiquement en `wss://`.
+4. Google : ajouter `https://<domaine>.vercel.app/` (voir ci-dessous). Les
+   déploiements *preview* ont une URL différente à chaque fois, donc la
+   connexion Google n'y marche pas : tester Google sur le domaine de prod.
+
+Le build installe les dépendances avec pnpm 12.8.1 (fixé dans `packageManager`
+et `vercel.json`, nécessaire pour `nodeLinker: hoisted`), compile
+`@orbit/shared` puis exporte le site statique dans `apps/mobile/dist`.
+
+**Connexion Google sur le web** : la PWA passe par une redirection vers Google,
+qui revient sur la racine du site. Dans Google Cloud Console → Identifiants →
+client OAuth **Web** → « URI de redirection autorisés », ajouter l'adresse
+exacte de la PWA **avec le `/` final** (ex. `https://orbit.example.com/` ;
+en local `http://localhost:8081/`). Sans ça, Google affiche « Accès bloqué :
+redirect_uri_mismatch ». La prise en compte peut prendre quelques minutes.
+
 ## Tests
 
 ```bash
@@ -172,6 +232,28 @@ Le code est en place, mais un jeton Expo exige un projet EAS :
 
 Sans `projectId`, l'app le signale dans les logs et continue sans push (les
 bannières in-app fonctionnent toujours).
+
+### Activer la connexion Google
+
+Le serveur vérifie le jeton d'identité Google (`POST /auth/google`) puis
+connecte le compte lié, ou lie un compte existant au même email **vérifié par
+Google**, ou en crée un (sans mot de passe).
+
+1. Google Cloud Console → « Écran de consentement OAuth » (mode Externe, s'ajouter
+   en utilisateur test).
+2. Créer deux ID client OAuth :
+   - **Web** : aucun réglage ; c'est son ID qui sert partout ci-dessous ;
+   - **Android** : package `com.orbit.app` + SHA-1 du keystore qui signe l'APK
+     (debug : `keytool -J-Duser.language=en -list -v -keystore apps/mobile/android/app/debug.keystore -storepass android`).
+3. Renseigner l'ID du client **Web** :
+   - `apps/api/.env` : `GOOGLE_CLIENT_IDS="xxxx.apps.googleusercontent.com"` ;
+   - `apps/mobile/.env` : `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID="xxxx.apps.googleusercontent.com"`.
+4. Redémarrer l'API et Metro (`--clear`, les variables `EXPO_PUBLIC_*` sont
+   injectées au bundling).
+
+Le bouton « Continuer avec Google » n'apparaît que si l'ID est renseigné et hors
+Expo Go (module natif). iOS demandera en plus l'option `iosUrlScheme` du plugin
+`@react-native-google-signin/google-signin` dans `app.json`.
 
 ## Limites connues du MVP (volontairement hors scope)
 

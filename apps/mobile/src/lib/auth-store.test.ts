@@ -1,3 +1,4 @@
+jest.mock("./google-sign-in", () => ({ getGoogleIdToken: jest.fn(), signOutOfGoogle: jest.fn() }));
 jest.mock("./notifications", () => ({ unregisterPushNotifications: jest.fn() }));
 jest.mock("./api-client", () => ({
   apiRequest: jest.fn(),

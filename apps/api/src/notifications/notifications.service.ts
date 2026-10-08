@@ -1,11 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
+import { URGENT_MAP_REPORT_KINDS } from "@orbit/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   LOCATION_EVENTS,
   type CircleMemberJoinedEvent,
   type GeofenceEventOccurredEvent,
   type LocationRequestUpdatedEvent,
+  type MapReportChangedEvent,
   type MeetupCreatedEvent,
   type SessionAlertEvent,
   type SessionEndedEvent,
@@ -136,6 +138,18 @@ export class NotificationsService {
           ? `${request.toName} partage sa position`
           : `${request.toName} ne peut pas partager pour le moment`,
       body: change === "accepted" ? "Regarde sur la carte" : "Réessaie un peu plus tard",
+      url: "/",
+    });
+  }
+
+  /** Only urgent reports are pushed; roadwork or traffic would just be noise. */
+  @OnEvent(LOCATION_EVENTS.MapReportChanged, { async: true, suppressErrors: true })
+  onMapReport({ report, change }: MapReportChangedEvent) {
+    if (change !== "created" || !URGENT_MAP_REPORT_KINDS.includes(report.kind)) return;
+    const labels = { danger: "un danger", accident: "un accident", closed: "une route barrée" } as Record<string, string>;
+    return this.notifyCircle(report.circleId, report.userId, {
+      title: `⚠️ ${report.displayName} signale ${labels[report.kind]}`,
+      body: report.note ?? "Regarde où sur la carte",
       url: "/",
     });
   }

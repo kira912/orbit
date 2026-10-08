@@ -1,9 +1,10 @@
-import { ConflictException, UnauthorizedException } from "@nestjs/common";
+import { ConflictException, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import { AuthService } from "./auth.service";
 import { PrismaService } from "../prisma/prisma.service";
+import type { GoogleIdentity, GoogleTokenVerifier } from "./google-token.verifier";
 
 const CONFIG: Record<string, string> = {
   JWT_ACCESS_SECRET: "test-access-secret",
@@ -28,6 +29,7 @@ function buildPrismaMock() {
     user: {
       findUnique: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
     refreshToken: {
       create: jest.fn(),
@@ -40,6 +42,7 @@ function buildPrismaMock() {
 describe("AuthService", () => {
   let prisma: ReturnType<typeof buildPrismaMock>;
   let service: AuthService;
+  let google: { configured: boolean; verify: jest.Mock };
 
   const existingUser = {
     id: "user-1",
@@ -52,10 +55,12 @@ describe("AuthService", () => {
   beforeEach(async () => {
     existingUser.passwordHash = await bcrypt.hash("correct-horse", 4);
     prisma = buildPrismaMock();
+    google = { configured: true, verify: jest.fn() };
     service = new AuthService(
       prisma as unknown as PrismaService,
       new JwtService(),
       buildConfigService(),
+      google as unknown as GoogleTokenVerifier,
     );
   });
 
@@ -162,6 +167,75 @@ describe("AuthService", () => {
 
     it("rejects a malformed token", async () => {
       await expect(service.refresh("not-a-jwt")).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    });
+  });
+
+  describe("loginWithGoogle", () => {
+    const identity: GoogleIdentity = {
+      sub: "google-123",
+      email: "ada@example.com",
+      emailVerified: true,
+      name: "Ada Lovelace",
+    };
+
+    it("signs in the account already linked to that Google identity", async () => {
+      google.verify.mockResolvedValue(identity);
+      prisma.user.findUnique.mockResolvedValueOnce(existingUser);
+
+      const result = await service.loginWithGoogle("id-token");
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { googleId: "google-123" } });
+      expect(result.user.id).toBe("user-1");
+      expect(result.tokens.accessToken).toBeTruthy();
+    });
+
+    it("links an existing account with the same verified email", async () => {
+      google.verify.mockResolvedValue(identity);
+      prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(existingUser);
+      prisma.user.update.mockResolvedValue({ ...existingUser, googleId: "google-123" });
+
+      await service.loginWithGoogle("id-token");
+
+      expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: "user-1" }, data: { googleId: "google-123" } });
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it("never links on an email Google hasn't verified", async () => {
+      google.verify.mockResolvedValue({ ...identity, emailVerified: false });
+      prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(existingUser);
+
+      await expect(service.loginWithGoogle("id-token")).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it("creates a password-less account for a new Google user", async () => {
+      google.verify.mockResolvedValue(identity);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({ ...existingUser, id: "user-2", passwordHash: null });
+
+      await service.loginWithGoogle("id-token");
+
+      expect(prisma.user.create).toHaveBeenCalledWith({
+        data: { email: "ada@example.com", googleId: "google-123", passwordHash: null, displayName: "Ada Lovelace" },
+      });
+    });
+
+    it("rejects an invalid token", async () => {
+      google.verify.mockRejectedValue(new Error("bad signature"));
+      await expect(service.loginWithGoogle("forged")).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it("says so when Google sign-in isn't configured on the server", async () => {
+      google.configured = false;
+      await expect(service.loginWithGoogle("id-token")).rejects.toBeInstanceOf(ServiceUnavailableException);
+      expect(google.verify).not.toHaveBeenCalled();
+    });
+
+    it("refuses a password login on a Google-only account", async () => {
+      prisma.user.findUnique.mockResolvedValue({ ...existingUser, passwordHash: null });
+      await expect(service.login({ email: "ada@example.com", password: "whatever" })).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
     });

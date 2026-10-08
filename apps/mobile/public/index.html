@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <!-- viewport-fit=cover exposes the notch/home-indicator insets to react-native-safe-area-context. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Orbit</title>
+    <meta name="description" content="Partage ta position avec tes proches, en direct." />
+    <meta name="theme-color" content="#0B1020" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <!-- iOS ignores the manifest's icons and display mode: it reads these instead. -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Orbit" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+        background-color: #0b1020;
+        /* No rubber-band bounce or pull-to-refresh: it fights the map's gestures. */
+        overscroll-behavior: none;
+      }
+      body {
+        overflow: hidden;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>Active JavaScript pour utiliser Orbit.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

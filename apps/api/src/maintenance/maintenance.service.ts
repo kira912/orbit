@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { LocationRequestsService } from "../location-requests/location-requests.service";
+import { MapReportsService } from "../map-reports/map-reports.service";
 import { MeetupsService } from "../meetups/meetups.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ShareSessionsService } from "../share-sessions/share-sessions.service";
@@ -14,6 +15,7 @@ const DEFAULT_PING_RETENTION_DAYS = 7;
  * - ends sessions and meetups whose deadline passed while no ping came in,
  *   and lapses unanswered "Tu es où ?" requests;
  * - raises "Rentre bien" alerts on watched trips that look wrong;
+ * - forgets map reports gone for a week;
  * - deletes positions older than PING_RETENTION_DAYS: sharing is meant to be
  *   temporary, so its trace shouldn't outlive it for long either.
  */
@@ -27,6 +29,7 @@ export class MaintenanceService implements OnModuleInit, OnModuleDestroy {
     private readonly sessions: ShareSessionsService,
     private readonly meetups: MeetupsService,
     private readonly requests: LocationRequestsService,
+    private readonly reports: MapReportsService,
     private readonly config: ConfigService,
   ) {}
 
@@ -42,7 +45,10 @@ export class MaintenanceService implements OnModuleInit, OnModuleDestroy {
       await this.expireDue();
       await this.sessions.checkSafety();
     });
-    every(RETENTION_SWEEP_MS, () => this.purgeOldPings());
+    every(RETENTION_SWEEP_MS, async () => {
+      await this.purgeOldPings();
+      await this.reports.purgeOld();
+    });
     void this.purgeOldPings().catch(() => undefined);
   }
 

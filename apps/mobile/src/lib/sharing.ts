@@ -5,6 +5,7 @@ import { apiRequest } from "./api-client";
 import { queryClient } from "./query-client";
 import {
   isBackgroundLocationTrackingActive,
+  resumeLocationTracking,
   startBackgroundLocationTracking,
   stopBackgroundLocationTracking,
 } from "../tasks/background-location-task";
@@ -36,7 +37,7 @@ export async function startSharing(input: StartShareSessionInput): Promise<Share
  * the phone follows whatever the server says instead of its own bookkeeping.
  */
 export async function reconcileTracking(activeSessions: number): Promise<void> {
-  if (activeSessions > 0) return;
+  if (activeSessions > 0) return resumeLocationTracking();
   if (await isBackgroundLocationTrackingActive()) await stopBackgroundLocationTracking();
 }
 

@@ -21,6 +21,12 @@ export const loginInputSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginInputSchema>;
 
+/** Sign in with Google: the ID token the Google SDK returned on the device. */
+export const googleAuthInputSchema = z.object({
+  idToken: z.string().min(1),
+});
+export type GoogleAuthInput = z.infer<typeof googleAuthInputSchema>;
+
 export const authTokensSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),

@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -9,6 +10,7 @@ import * as bcrypt from "bcryptjs";
 import { createHash, randomUUID } from "crypto";
 import type { AuthResponse, LoginInput, RegisterInput } from "@orbit/shared";
 import { PrismaService } from "../prisma/prisma.service";
+import { GoogleTokenVerifier, type GoogleIdentity } from "./google-token.verifier";
 import type { JwtPayload } from "./types";
 
 const BCRYPT_ROUNDS = 12;
@@ -19,6 +21,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly google: GoogleTokenVerifier,
   ) {}
 
   async register(input: RegisterInput): Promise<AuthResponse> {
@@ -49,6 +52,10 @@ export class AuthService {
       throw new UnauthorizedException("Invalid credentials");
     }
 
+    if (!user.passwordHash) {
+      throw new UnauthorizedException("Ce compte utilise la connexion avec Google");
+    }
+
     const passwordMatches = await bcrypt.compare(
       input.password,
       user.passwordHash,
@@ -57,6 +64,50 @@ export class AuthService {
       throw new UnauthorizedException("Invalid credentials");
     }
 
+    return this.buildAuthResponse(user);
+  }
+
+  /**
+   * Sign in with Google: the account linked to that Google identity, else an
+   * existing account with the same (Google-verified) email, which gets
+   * linked, else a new account.
+   */
+  async loginWithGoogle(idToken: string): Promise<AuthResponse> {
+    if (!this.google.configured) {
+      throw new ServiceUnavailableException("La connexion Google n'est pas configurée sur le serveur");
+    }
+
+    let identity: GoogleIdentity;
+    try {
+      identity = await this.google.verify(idToken);
+    } catch {
+      throw new UnauthorizedException("Jeton Google invalide");
+    }
+
+    const linked = await this.prisma.user.findUnique({ where: { googleId: identity.sub } });
+    if (linked) return this.buildAuthResponse(linked);
+
+    const sameEmail = await this.prisma.user.findUnique({ where: { email: identity.email } });
+    if (sameEmail) {
+      // Linking on an unverified email would let anyone claim someone else's account.
+      if (!identity.emailVerified) {
+        throw new ConflictException("Un compte existe déjà avec cet email");
+      }
+      const user = await this.prisma.user.update({
+        where: { id: sameEmail.id },
+        data: { googleId: identity.sub },
+      });
+      return this.buildAuthResponse(user);
+    }
+
+    const user = await this.prisma.user.create({
+      data: {
+        email: identity.email,
+        googleId: identity.sub,
+        passwordHash: null,
+        displayName: (identity.name ?? identity.email.split("@")[0]).slice(0, 60),
+      },
+    });
     return this.buildAuthResponse(user);
   }
 

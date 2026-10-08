@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ActivityItem } from "@orbit/shared";
 import { formatClock, formatDay } from "../../lib/eta-format";
 import { useActivity } from "../../hooks/useActivity";
+import { REPORT_KINDS } from "../../lib/report-kinds";
 import { useCircles } from "../../hooks/useCircles";
 import { useActiveCircleStore } from "../../lib/active-circle-store";
 import { useTabBarClearance } from "../../components/TabBar";
@@ -121,6 +122,10 @@ function describe(item: ActivityItem): { icon: IconName; color: string; text: st
         silent: "n'envoyait plus sa position",
       }[item.alertKind];
       return { icon: "warning", color: colors.danger, text: `· Rentre bien : ${text}` };
+    }
+    case "map-report": {
+      const meta = REPORT_KINDS[item.reportKind];
+      return { icon: meta.icon, color: meta.color, text: `a signalé ${meta.phrase}${item.note ? ` : « ${item.note} »` : ""}` };
     }
     case "safety-ok":
       return { icon: "shield-checkmark", color: colors.success, text: "a indiqué que tout allait bien" };

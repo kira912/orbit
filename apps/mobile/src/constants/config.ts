@@ -1,4 +1,4 @@
-import { TurboModuleRegistry, type TurboModule } from "react-native";
+import { Platform, TurboModuleRegistry, type TurboModule } from "react-native";
 import Constants from "expo-constants";
 
 /**
@@ -30,6 +30,9 @@ function devServerHost(): string | undefined {
 function resolveApiUrl(): string {
   const override = process.env.EXPO_PUBLIC_API_URL;
   if (override) return override;
+
+  // PWA: the API is expected on the same host as the page.
+  if (Platform.OS === "web") return `${window.location.protocol}//${window.location.hostname}:3333`;
 
   const host = devServerHost();
   if (host) return `http://${host}:3333`;

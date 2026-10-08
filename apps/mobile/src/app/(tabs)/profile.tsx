@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ComponentProps, type ReactNode } from "react";
-import { Alert, Linking, ScrollView, StatusBar, StyleSheet, View } from "react-native";
+import { Alert, Linking, Platform, ScrollView, StatusBar, StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -108,13 +108,23 @@ export default function ProfileScreen() {
         <Section title="Notifications" delay={140}>
           <Row
             icon={notificationsGranted ? "notifications" : "notifications-off"}
-            title={notificationsGranted ? "Activées" : pushSupported ? "Désactivées" : "Indisponibles dans Expo Go"}
+            title={
+              notificationsGranted
+                ? "Activées"
+                : pushSupported
+                  ? "Désactivées"
+                  : Platform.OS === "web"
+                    ? "Bientôt sur la version web"
+                    : "Indisponibles dans Expo Go"
+            }
             subtitle={
               notificationsGranted
                 ? "Arrivées, départs et rendez-vous de tes cercles, même app fermée."
                 : pushSupported
                   ? "Active-les pour savoir quand tes proches arrivent."
-                  : "Lance le build de développement (npx expo run:android) pour les recevoir."
+                  : Platform.OS === "web"
+                    ? "En attendant, les alertes s'affichent quand l'app est ouverte."
+                    : "Lance le build de développement (npx expo run:android) pour les recevoir."
             }
             action={
               !notificationsGranted &&
