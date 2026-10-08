@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  passwordHash   String
+  displayName    String
+  createdAt      DateTime        @default(now())
+  ownedCircles   Circle[]        @relation("CircleOwner")
+  memberships    CircleMember[]
+  locationPings  LocationPing[]
+  shareSessions  ShareSession[]
+  refreshTokens  RefreshToken[]
+  geofenceEvents GeofenceEvent[]
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  @@index([userId])
+}
+
+model Circle {
+  id            String         @id @default(uuid())
+  name          String
+  inviteCode    String         @unique
+  ownerId       String
+  owner         User           @relation("CircleOwner", fields: [ownerId], references: [id])
+  members       CircleMember[]
+  places        Place[]
+  shareSessions ShareSession[]
+  createdAt     DateTime       @default(now())
+}
+
+model CircleMember {
+  circleId String
+  userId   String
+  circle   Circle   @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt DateTime @default(now())
+
+  @@id([circleId, userId])
+  @@index([userId])
+}
+
+model Place {
+  id             String          @id @default(uuid())
+  circleId       String
+  circle         Circle          @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  name           String
+  latitude       Float
+  longitude      Float
+  radiusMeters   Float
+  createdAt      DateTime        @default(now())
+  geofenceEvents GeofenceEvent[]
+
+  @@index([circleId])
+}
+
+model LocationPing {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  latitude        Float
+  longitude       Float
+  accuracy        Float?
+  speed           Float?
+  heading         Float?
+  batteryLevel    Float?
+  batteryCharging Boolean?
+  recordedAt      DateTime
+  createdAt       DateTime @default(now())
+
+  @@index([userId, recordedAt])
+}
+
+enum ShareSessionStatus {
+  active
+  arrived
+  expired
+  stopped
+}
+
+model ShareSession {
+  id                  String             @id @default(uuid())
+  userId              String
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circleId            String
+  circle              Circle             @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  destinationLat      Float?
+  destinationLng      Float?
+  arrivalRadiusMeters Float?
+  expiresAt           DateTime?
+  status              ShareSessionStatus @default(active)
+  startedAt           DateTime           @default(now())
+  endedAt             DateTime?
+
+  @@index([userId, status])
+}
+
+enum GeofenceEventType {
+  enter
+  exit
+}
+
+model GeofenceEvent {
+  id         String            @id @default(uuid())
+  placeId    String
+  place      Place             @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       GeofenceEventType
+  occurredAt DateTime          @default(now())
+
+  @@index([placeId, userId, occurredAt])
+}

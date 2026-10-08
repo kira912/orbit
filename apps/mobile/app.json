@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "Orbit",
+    "slug": "orbit",
+    "scheme": "orbit",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#0B1220"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.orbit.app",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Orbit affiche ta position à tes cercles pendant que tu utilises l'app.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Orbit peut partager ta position en arrière-plan quand tu actives un partage avec un cercle, pour les alertes d'arrivée et de zone.",
+        "UIBackgroundModes": [
+          "location"
+        ]
+      }
+    },
+    "android": {
+      "package": "com.orbit.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Orbit peut partager ta position en arrière-plan quand tu actives un partage avec un cercle, pour les alertes d'arrivée et de zone.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      "expo-splash-screen",
+      "expo-status-bar",
+      "@maplibre/maplibre-react-native"
+    ],
+    "extra": {
+      "router": {}
+    },
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
