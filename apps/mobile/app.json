@@ -60,6 +60,14 @@
         {
           "color": "#6C5CE7"
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Orbit utilise la caméra pour scanner le QR code d'invitation d'un cercle.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
       ]
     ],
     "extra": {

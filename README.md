@@ -164,6 +164,13 @@ Les écrans sont partagés ; seules les briques natives ont une version web :
 | `background-location-task.ts` | `.web.ts` : position au premier plan + écran maintenu allumé (Wake Lock) |
 | `google-sign-in.ts` | `.web.ts` : flux OAuth par redirection |
 
+**Inviter par QR code** : onglet Cercle → bouton QR. Le code encode un lien
+`<site>/join/<code>` : scanné depuis Orbit (Mes cercles → Rejoindre → Scanner)
+ou avec l'appareil photo, il fait rejoindre le cercle, après connexion si
+besoin. Dans l'app native, définir `EXPO_PUBLIC_WEB_URL` (URL de la PWA) pour
+que ses QR codes s'ouvrent aussi sans l'app ; sinon ils utilisent `orbit://`.
+Le scanner natif utilise `expo-camera` : recompiler le build de développement.
+
 **Limites** : le navigateur ne partage la position que **tant que l'app est à
 l'écran** (écran verrouillé ou autre app = plus de mises à jour) ; pas encore de
 notifications push sur le web (les alertes in-app fonctionnent app ouverte).

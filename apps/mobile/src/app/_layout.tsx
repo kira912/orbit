@@ -18,6 +18,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "../lib/query-client";
 import { useAuthStore } from "../lib/auth-store";
 import { onNotificationTap, registerForPushNotifications } from "../lib/notifications";
+import { takePendingInvite } from "../lib/pending-invite";
 import { Toaster } from "../components/ui";
 import { colors } from "../theme";
 
@@ -51,6 +52,7 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <StatusBar style={authenticated ? "dark" : "light"} />
           {authenticated && <PushNotifications />}
+          {authenticated && <PendingInvite />}
           <Stack
             screenOptions={{
               headerShown: false,
@@ -60,17 +62,20 @@ export default function RootLayout() {
           >
             <Stack.Protected guard={authenticated}>
               <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
-              {["share", "circles", "meetup/new", "meetup/[id]", "place/new", "report/new"].map((name) => (
+              {["share", "circles", "invite", "meetup/new", "meetup/[id]", "place/new", "report/new"].map((name) => (
                 <Stack.Screen
                   key={name}
                   name={name}
                   options={{ presentation: "modal", animation: "slide_from_bottom", gestureEnabled: true }}
                 />
               ))}
+              <Stack.Screen name="scan" options={{ presentation: "fullScreenModal", animation: "slide_from_bottom" }} />
             </Stack.Protected>
             <Stack.Protected guard={!authenticated}>
               <Stack.Screen name="(auth)" options={{ animation: "fade" }} />
             </Stack.Protected>
+            {/* Invite links work signed in or out (the screen sends visitors to sign in first). */}
+            <Stack.Screen name="join/[code]" options={{ animation: "fade" }} />
           </Stack>
           <Toaster />
         </QueryClientProvider>
@@ -85,6 +90,16 @@ function PushNotifications() {
   useEffect(() => {
     void registerForPushNotifications();
     return onNotificationTap((url) => router.navigate(url as never));
+  }, [router]);
+  return null;
+}
+
+/** An invite link opened before signing in: use it now that we are. */
+function PendingInvite() {
+  const router = useRouter();
+  useEffect(() => {
+    const code = takePendingInvite();
+    if (code) router.navigate(`/join/${code}`);
   }, [router]);
   return null;
 }

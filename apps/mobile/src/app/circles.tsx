@@ -134,6 +134,9 @@ export default function CirclesScreen() {
             onSubmitEditing={onSubmit}
           />
         )}
+        {mode === "join" && (
+          <Button variant="secondary" icon="qr-code" label="Scanner un QR code" onPress={() => router.push("/scan")} />
+        )}
         {error && (
           <AppText variant="bodyStrong" color={colors.danger}>
             {error}

@@ -41,3 +41,12 @@ function resolveApiUrl(): string {
 }
 
 export const API_URL = resolveApiUrl();
+
+/**
+ * Public address of the PWA, used in invite links and QR codes so that any
+ * phone camera can open them. On web it's the page's own origin; native
+ * builds without EXPO_PUBLIC_WEB_URL fall back to the app's orbit:// scheme.
+ */
+export const WEB_URL: string | null =
+  process.env.EXPO_PUBLIC_WEB_URL?.replace(/\/$/, "") ??
+  (Platform.OS === "web" ? window.location.origin : null);
