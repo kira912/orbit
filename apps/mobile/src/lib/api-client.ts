@@ -2,6 +2,7 @@ import type { z } from "zod";
 import { authResponseSchema } from "@orbit/shared";
 import { API_URL } from "../constants/config";
 import { tokenStorage } from "./token-storage";
+import { trackApiActivity } from "./api-activity-store";
 
 export class ApiError extends Error {
   constructor(
@@ -27,7 +28,7 @@ let refreshPromise: Promise<string> | null = null;
 
 async function refreshAccessToken(): Promise<string> {
   if (!refreshPromise) {
-    refreshPromise = doRefresh().finally(() => {
+    refreshPromise = trackApiActivity(doRefresh).finally(() => {
       refreshPromise = null;
     });
   }
@@ -75,11 +76,19 @@ function buildUrl(path: string, query?: Record<string, string>): string {
   return url.toString();
 }
 
-export async function apiRequest<T>(
-  path: string,
-  schema: z.ZodType<T>,
-  options: ApiRequestOptions = {},
-): Promise<T> {
+export function apiRequest<T>(path: string, schema: z.ZodType<T>, options: ApiRequestOptions = {}): Promise<T> {
+  return trackApiActivity(() => sendRequest(path, schema, options));
+}
+
+/**
+ * Fire-and-forget call at launch: an API asleep on a free host (Render) starts
+ * waking up while the user is still on the login screen or the splash.
+ */
+export function wakeApi(): void {
+  void trackApiActivity(() => fetch(new URL("/health", API_URL).toString())).catch(() => undefined);
+}
+
+async function sendRequest<T>(path: string, schema: z.ZodType<T>, options: ApiRequestOptions): Promise<T> {
   const { method = "GET", body, query, skipAuth = false } = options;
   const url = buildUrl(path, query);
 

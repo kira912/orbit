@@ -16,10 +16,12 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "../lib/query-client";
+import { wakeApi } from "../lib/api-client";
 import { useAuthStore } from "../lib/auth-store";
 import { onNotificationTap, registerForPushNotifications } from "../lib/notifications";
 import { takePendingInvite } from "../lib/pending-invite";
 import { Toaster } from "../components/ui";
+import { ApiActivityIndicator } from "../components/ApiActivityIndicator";
 import { colors } from "../theme";
 
 void SplashScreen.preventAutoHideAsync();
@@ -36,6 +38,7 @@ export default function RootLayout() {
   const ready = status !== "idle" && (fontsLoaded || fontError != null);
 
   useEffect(() => {
+    wakeApi();
     hydrate();
   }, [hydrate]);
 
@@ -77,6 +80,7 @@ export default function RootLayout() {
             {/* Invite links work signed in or out (the screen sends visitors to sign in first). */}
             <Stack.Screen name="join/[code]" options={{ animation: "fade" }} />
           </Stack>
+          <ApiActivityIndicator />
           <Toaster />
         </QueryClientProvider>
       </SafeAreaProvider>
