@@ -1,0 +1,40 @@
+# Render Blueprint for the API (the PWA itself is deployed on Vercel, see
+# apps/mobile/vercel.json). Database: Neon Postgres, set DATABASE_URL by hand.
+services:
+  - type: web
+    name: orbit-api
+    runtime: node
+    plan: free
+    branch: master
+    healthCheckPath: /health
+    # The PWA and shared package don't affect the API: skip rebuilds for them.
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/shared/**
+        - pnpm-lock.yaml
+        - render.yaml
+    buildCommand: >-
+      npx -y pnpm@12.8.1 install --frozen-lockfile &&
+      npx -y pnpm@12.8.1 --filter @orbit/shared build &&
+      npx -y pnpm@12.8.1 --filter @orbit/api exec prisma generate &&
+      npx -y pnpm@12.8.1 --filter @orbit/api build
+    # Migrations run on each start: idempotent, and they need the database,
+    # which the build step can't be assumed to reach. The installed Prisma CLI
+    # is called directly (npx could fetch another major version).
+    startCommand: >-
+      node node_modules/prisma/build/index.js migrate deploy --schema apps/api/prisma/schema.prisma &&
+      node apps/api/dist/main.js
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_IDS
+        sync: false
+      - key: CORS_ORIGIN
+        value: "*"

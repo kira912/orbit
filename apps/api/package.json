@@ -11,6 +11,7 @@
     "lint": "echo skip",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node prisma/seed.ts",
     "simulate:member": "node scripts/simulate-member.mjs"
   },

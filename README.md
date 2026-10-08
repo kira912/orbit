@@ -171,6 +171,28 @@ notifications push sur le web (les alertes in-app fonctionnent app ouverte).
 La géolocalisation exige **HTTPS** (sauf `localhost`) : un iPhone sur
 `http://192.168.x.x` n'aura pas de position.
 
+### Déployer l'API sur Render (+ Postgres Neon)
+
+L'API tourne sur Render (`render.yaml` à la racine), la base sur Neon.
+
+1. **Neon** → créer un projet (région proche, ex. Frankfurt) → *Connect* →
+   copier la chaîne de connexion **directe** : désactiver *Connection pooling*,
+   car les migrations Prisma ne passent pas par le pooler. Elle doit finir par
+   `?sslmode=require`.
+2. **Render** → *New* → *Blueprint* → choisir le dépôt. Render lit
+   `render.yaml` et demande les variables marquées `sync: false` :
+   - `DATABASE_URL` = la chaîne Neon ;
+   - `GOOGLE_CLIENT_IDS` = l'ID du client OAuth Web (vide = Google désactivé).
+   Les secrets JWT sont générés automatiquement.
+3. Au démarrage, l'API applique les migrations puis répond sur `/health`.
+   Son URL (`https://orbit-api-xxxx.onrender.com`) est la valeur
+   d'`EXPO_PUBLIC_API_URL` côté Vercel.
+
+**Offre gratuite Render** : le service s'endort après ~15 min sans requête, et
+le réveil prend environ une minute. Pendant le sommeil, les partages expirés ne
+sont clos et les alertes « Rentre bien » ne partent qu'au réveil suivant. Ça
+suffit pour tester ; pour un vrai usage, passer sur une offre payante.
+
 ### Déployer la PWA sur Vercel
 
 Seule la PWA va sur Vercel. L'API (NestJS + socket.io + Postgres) a besoin
