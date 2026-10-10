@@ -19,6 +19,7 @@ export interface MemberTrip {
 interface MemberSheetProps {
   location: FriendLocation | null;
   email?: string;
+  pictureUrl?: string | null;
   /** The member's ongoing share, if any. */
   trip?: MemberTrip | null;
   /** Trajectory toggle, only offered where the trajectory can be drawn (the map). */
@@ -53,6 +54,7 @@ export function MemberSheet({ location, onClose, ...props }: MemberSheetProps) {
 function SheetContent({
   location,
   email,
+  pictureUrl,
   trip,
   historyActive = false,
   onToggleHistory,
@@ -78,6 +80,7 @@ function SheetContent({
         <Avatar
           userId={location.userId}
           name={location.displayName}
+          pictureUrl={pictureUrl}
           size={60}
           color={stale ? colors.faint : undefined}
           presence={stale ? "stale" : "live"}

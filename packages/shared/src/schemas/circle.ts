@@ -14,6 +14,7 @@ export const circleMemberSchema = z.object({
   userId: z.string().uuid(),
   displayName: z.string(),
   email: z.string().email(),
+  pictureUrl: z.string().url().nullish(),
   joinedAt: z.coerce.date(),
 });
 export type CircleMember = z.infer<typeof circleMemberSchema>;

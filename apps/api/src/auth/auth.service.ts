@@ -85,7 +85,7 @@ export class AuthService {
     }
 
     const linked = await this.prisma.user.findUnique({ where: { googleId: identity.sub } });
-    if (linked) return this.buildAuthResponse(linked);
+    if (linked) return this.buildAuthResponse(await this.refreshPicture(linked, identity.picture));
 
     const sameEmail = await this.prisma.user.findUnique({ where: { email: identity.email } });
     if (sameEmail) {
@@ -95,7 +95,7 @@ export class AuthService {
       }
       const user = await this.prisma.user.update({
         where: { id: sameEmail.id },
-        data: { googleId: identity.sub },
+        data: { googleId: identity.sub, pictureUrl: identity.picture },
       });
       return this.buildAuthResponse(user);
     }
@@ -104,11 +104,21 @@ export class AuthService {
       data: {
         email: identity.email,
         googleId: identity.sub,
+        pictureUrl: identity.picture,
         passwordHash: null,
         displayName: (identity.name ?? identity.email.split("@")[0]).slice(0, 60),
       },
     });
     return this.buildAuthResponse(user);
+  }
+
+  /** The Google photo can change: keep ours in sync without clearing it when the token has none. */
+  private async refreshPicture<T extends { id: string; pictureUrl: string | null }>(
+    user: T,
+    picture: string | null,
+  ): Promise<T> {
+    if (!picture || picture === user.pictureUrl) return user;
+    return this.prisma.user.update({ where: { id: user.id }, data: { pictureUrl: picture } }) as unknown as Promise<T>;
   }
 
   async refresh(refreshToken: string): Promise<AuthResponse> {
@@ -149,6 +159,7 @@ export class AuthService {
     id: string;
     email: string;
     displayName: string;
+    pictureUrl: string | null;
     createdAt: Date;
   }): Promise<AuthResponse> {
     const payload: JwtPayload = { sub: user.id, email: user.email };
@@ -187,6 +198,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         displayName: user.displayName,
+        pictureUrl: user.pictureUrl,
         createdAt: user.createdAt,
       },
       tokens: { accessToken, refreshToken },

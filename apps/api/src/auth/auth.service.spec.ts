@@ -48,6 +48,7 @@ describe("AuthService", () => {
     id: "user-1",
     email: "ada@example.com",
     displayName: "Ada",
+    pictureUrl: null as string | null,
     createdAt: new Date("2024-01-01T00:00:00.000Z"),
     passwordHash: "" as string,
   };
@@ -178,17 +179,29 @@ describe("AuthService", () => {
       email: "ada@example.com",
       emailVerified: true,
       name: "Ada Lovelace",
+      picture: "https://lh3.googleusercontent.com/ada",
     };
 
     it("signs in the account already linked to that Google identity", async () => {
       google.verify.mockResolvedValue(identity);
-      prisma.user.findUnique.mockResolvedValueOnce(existingUser);
+      prisma.user.findUnique.mockResolvedValueOnce({ ...existingUser, pictureUrl: identity.picture });
 
       const result = await service.loginWithGoogle("id-token");
 
       expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { googleId: "google-123" } });
       expect(result.user.id).toBe("user-1");
       expect(result.tokens.accessToken).toBeTruthy();
+    });
+
+    it("refreshes the stored photo when Google's changed", async () => {
+      google.verify.mockResolvedValue(identity);
+      prisma.user.findUnique.mockResolvedValueOnce(existingUser);
+      prisma.user.update.mockResolvedValue({ ...existingUser, pictureUrl: identity.picture });
+
+      const result = await service.loginWithGoogle("id-token");
+
+      expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: "user-1" }, data: { pictureUrl: identity.picture } });
+      expect(result.user.pictureUrl).toBe(identity.picture);
     });
 
     it("links an existing account with the same verified email", async () => {
@@ -198,7 +211,7 @@ describe("AuthService", () => {
 
       await service.loginWithGoogle("id-token");
 
-      expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: "user-1" }, data: { googleId: "google-123" } });
+      expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: "user-1" }, data: { googleId: "google-123", pictureUrl: identity.picture } });
       expect(prisma.user.create).not.toHaveBeenCalled();
     });
 
@@ -218,7 +231,13 @@ describe("AuthService", () => {
       await service.loginWithGoogle("id-token");
 
       expect(prisma.user.create).toHaveBeenCalledWith({
-        data: { email: "ada@example.com", googleId: "google-123", passwordHash: null, displayName: "Ada Lovelace" },
+        data: {
+          email: "ada@example.com",
+          googleId: "google-123",
+          pictureUrl: identity.picture,
+          passwordHash: null,
+          displayName: "Ada Lovelace",
+        },
       });
     });
 

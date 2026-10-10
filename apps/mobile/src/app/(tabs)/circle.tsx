@@ -225,6 +225,7 @@ export default function CircleScreen() {
       <MemberSheet
         location={selected?.location ?? null}
         email={selected?.member.email}
+        pictureUrl={selected?.member.pictureUrl}
         trip={
           selectedSession
             ? {
@@ -286,6 +287,7 @@ function MemberRow({
       <Avatar
         userId={member.userId}
         name={member.displayName}
+        pictureUrl={member.pictureUrl}
         size={46}
         color={location && !stale ? undefined : colors.faint}
         presence={location ? (stale ? "stale" : "live") : null}

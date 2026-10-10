@@ -112,7 +112,8 @@ export default function MapScreen() {
   const otherSessions = (circleSessions ?? []).filter((s) => s.userId !== user?.id && !s.meetupId);
 
   const selectedLocation = selectedUserId ? (liveLocations[selectedUserId] ?? null) : null;
-  const selectedEmail = activeCircle?.members.find((m) => m.userId === selectedUserId)?.email;
+  const selectedMember = activeCircle?.members.find((m) => m.userId === selectedUserId);
+  const selectedEmail = selectedMember?.email;
   const selectedSession = circleSessions?.find((s) => s.userId === selectedUserId);
   const selectedTrip = selectedSession
     ? { destinationName: selectedSession.destinationName, etaSeconds: etas[selectedSession.id]?.etaSeconds ?? null }
@@ -515,6 +516,7 @@ export default function MapScreen() {
       <MemberSheet
         location={selectedLocation}
         email={selectedEmail}
+        pictureUrl={selectedMember?.pictureUrl}
         trip={selectedTrip}
         askingLocation={askLocation.asking}
         onAskLocation={() =>

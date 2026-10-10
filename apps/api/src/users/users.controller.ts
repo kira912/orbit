@@ -13,7 +13,7 @@ export class UsersController {
   async me(@CurrentUser() user: AuthenticatedUser) {
     return this.prisma.user.findUniqueOrThrow({
       where: { id: user.id },
-      select: { id: true, email: true, displayName: true, createdAt: true },
+      select: { id: true, email: true, displayName: true, pictureUrl: true, createdAt: true },
     });
   }
 }

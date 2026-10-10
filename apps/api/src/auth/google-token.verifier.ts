@@ -7,6 +7,7 @@ export interface GoogleIdentity {
   email: string;
   emailVerified: boolean;
   name: string | null;
+  picture: string | null;
 }
 
 /**
@@ -41,6 +42,7 @@ export class GoogleTokenVerifier {
       email: payload.email.toLowerCase(),
       emailVerified: payload.email_verified === true,
       name: payload.name ?? payload.given_name ?? null,
+      picture: payload.picture ?? null,
     };
   }
 }

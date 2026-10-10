@@ -101,7 +101,7 @@ export class CirclesService {
     inviteCode: string;
     ownerId: string;
     createdAt: Date;
-    members: { circleId: string; userId: string; joinedAt: Date; user: { displayName: string; email: string } }[];
+    members: { circleId: string; userId: string; joinedAt: Date; user: { displayName: string; email: string; pictureUrl: string | null } }[];
   }): CircleWithMembers {
     return {
       id: circle.id,
@@ -114,6 +114,7 @@ export class CirclesService {
         userId: m.userId,
         displayName: m.user.displayName,
         email: m.user.email,
+        pictureUrl: m.user.pictureUrl,
         joinedAt: m.joinedAt,
       })),
     };

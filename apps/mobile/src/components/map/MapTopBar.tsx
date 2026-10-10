@@ -60,6 +60,7 @@ export function MapTopBar({ circle, myId, locations, now, selectedUserId, onOpen
                   <Avatar
                     userId={member.userId}
                     name={member.displayName}
+                    pictureUrl={member.pictureUrl}
                     size={30}
                     color={stale ? colors.faint : undefined}
                     presence={location ? (stale ? "stale" : "live") : null}

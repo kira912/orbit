@@ -1,4 +1,5 @@
-import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { useState } from "react";
+import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { colors } from "../../theme";
 import { memberColor, memberInitials } from "../../lib/member-display";
 import { AppText } from "./AppText";
@@ -7,6 +8,8 @@ import { PulseDot } from "./PulseDot";
 export interface AvatarProps {
   userId: string;
   name: string;
+  /** Google photo; the colored initials stay as the fallback. */
+  pictureUrl?: string | null;
   size?: number;
   /** Overrides the member color (e.g. grey for a stale position). */
   color?: string;
@@ -16,8 +19,10 @@ export interface AvatarProps {
 }
 
 /** A member's colored initials, identical on the map, in lists and sheets. */
-export function Avatar({ userId, name, size = 44, color, presence = null, ring = false, style }: AvatarProps) {
+export function Avatar({ userId, name, pictureUrl, size = 44, color, presence = null, ring = false, style }: AvatarProps) {
   const background = color ?? memberColor(userId);
+  const [failed, setFailed] = useState(false);
+  const showPicture = !!pictureUrl && !failed;
   const dot = Math.max(10, Math.round(size * 0.28));
   return (
     <View style={[{ width: size, height: size }, style]}>
@@ -28,9 +33,18 @@ export function Avatar({ userId, name, size = 44, color, presence = null, ring =
           ring && { borderWidth: 3, borderColor: colors.surface },
         ]}
       >
-        <AppText variant="bodyStrong" color={colors.onNight} style={{ fontSize: size * 0.36, lineHeight: size * 0.44 }}>
-          {memberInitials(name)}
-        </AppText>
+        {showPicture ? (
+          <Image
+            source={{ uri: pictureUrl }}
+            style={{ width: "100%", height: "100%", borderRadius: size / 2 }}
+            onError={() => setFailed(true)}
+            accessibilityIgnoresInvertColors
+          />
+        ) : (
+          <AppText variant="bodyStrong" color={colors.onNight} style={{ fontSize: size * 0.36, lineHeight: size * 0.44 }}>
+            {memberInitials(name)}
+          </AppText>
+        )}
       </View>
       {presence && (
         <View
@@ -56,7 +70,7 @@ export function AvatarStack({
   size = 28,
   max = 4,
 }: {
-  members: { userId: string; displayName: string }[];
+  members: { userId: string; displayName: string; pictureUrl?: string | null }[];
   size?: number;
   max?: number;
 }) {
@@ -69,6 +83,7 @@ export function AvatarStack({
           key={m.userId}
           userId={m.userId}
           name={m.displayName}
+          pictureUrl={m.pictureUrl}
           size={size}
           ring
           style={{ marginLeft: i === 0 ? 0 : -size * 0.35, zIndex: shown.length - i }}

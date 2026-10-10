@@ -15,6 +15,8 @@ model User {
   /// Google account id ("sub" claim), set once signed in with Google.
   googleId       String?         @unique
   displayName    String
+  /// Google profile photo, refreshed at each Google sign-in.
+  pictureUrl     String?
   createdAt      DateTime        @default(now())
   ownedCircles   Circle[]        @relation("CircleOwner")
   memberships    CircleMember[]

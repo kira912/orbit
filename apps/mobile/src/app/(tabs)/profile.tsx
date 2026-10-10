@@ -49,7 +49,7 @@ export default function ProfileScreen() {
         </View>
         {user && (
           <Animated.View entering={FadeInDown.duration(500)} style={styles.heroContent}>
-            <Avatar userId={user.id} name={user.displayName} size={72} ring />
+            <Avatar userId={user.id} name={user.displayName} pictureUrl={user.pictureUrl} size={72} ring />
             <AppText variant="title" color={colors.onNight}>
               {user.displayName}
             </AppText>
