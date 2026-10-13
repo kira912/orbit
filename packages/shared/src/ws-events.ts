@@ -4,6 +4,8 @@ import type { SessionAlert, SessionEtaUpdate, SessionEnded, SessionStarted } fro
 import type { LocationRequest } from "./schemas/location-request";
 import type { MapReportsUpdated } from "./schemas/map-report";
 import type { MeetupUpdated } from "./schemas/meetup";
+import type { SendReactionInput, TripReaction } from "./schemas/gamification";
+import type { SpotsUpdated } from "./schemas/spot";
 
 /**
  * Single source of truth for the realtime contract between apps/mobile and
@@ -12,6 +14,8 @@ import type { MeetupUpdated } from "./schemas/meetup";
 export const WS_EVENTS = {
   /** client -> server: report a new position. */
   LocationUpdate: "location:update",
+  /** client -> server: send live reaction during a trip. */
+  SendReaction: "reaction:send",
   /** server -> client: a circle member moved. */
   FriendLocationUpdate: "location:friend-update",
   /** server -> client: a circle member entered/exited a place. */
@@ -30,8 +34,12 @@ export const WS_EVENTS = {
   LocationRequestUpdated: "location-request:updated",
   /** server -> client: a map report was added, confirmed or removed in one of your circles. */
   MapReportsUpdated: "map-reports:updated",
+  /** server -> client: a spot was created, liked, commented in your circle or publicly. */
+  SpotsUpdated: "spots:updated",
   /** server -> client: someone joined one of your circles. */
   CircleUpdated: "circle:updated",
+  /** server -> client: a live reaction was sent to a user/circle during a trip. */
+  TripReaction: "reaction:received",
 } as const;
 
 export interface ServerToClientEvents {
@@ -44,9 +52,12 @@ export interface ServerToClientEvents {
   [WS_EVENTS.SessionAlert]: (payload: SessionAlert) => void;
   [WS_EVENTS.LocationRequestUpdated]: (payload: LocationRequest) => void;
   [WS_EVENTS.MapReportsUpdated]: (payload: MapReportsUpdated) => void;
+  [WS_EVENTS.SpotsUpdated]: (payload: SpotsUpdated) => void;
   [WS_EVENTS.CircleUpdated]: (payload: { circleId: string }) => void;
+  [WS_EVENTS.TripReaction]: (payload: TripReaction) => void;
 }
 
 export interface ClientToServerEvents {
   [WS_EVENTS.LocationUpdate]: (payload: LocationPingInput) => void;
+  [WS_EVENTS.SendReaction]: (payload: SendReactionInput) => void;
 }

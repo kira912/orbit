@@ -3,11 +3,13 @@ import { ConfigModule } from "@nestjs/config";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { AuthModule } from "./auth/auth.module";
 import { CirclesModule } from "./circles/circles.module";
+import { GamificationModule } from "./gamification/gamification.module";
 import { GeofencingModule } from "./geofencing/geofencing.module";
 import { HealthController } from "./health.controller";
 import { LocationRequestsModule } from "./location-requests/location-requests.module";
 import { LocationsModule } from "./locations/locations.module";
 import { MapReportsModule } from "./map-reports/map-reports.module";
+import { SpotsModule } from "./spots/spots.module";
 import { MaintenanceModule } from "./maintenance/maintenance.module";
 import { MeetupsModule } from "./meetups/meetups.module";
 import { NotificationsModule } from "./notifications/notifications.module";
@@ -25,6 +27,7 @@ import { UsersModule } from "./users/users.module";
     AuthModule,
     UsersModule,
     CirclesModule,
+    GamificationModule,
     PlacesModule,
     GeofencingModule,
     ShareSessionsModule,
@@ -32,6 +35,7 @@ import { UsersModule } from "./users/users.module";
     MeetupsModule,
     LocationRequestsModule,
     MapReportsModule,
+    SpotsModule,
     NotificationsModule,
     MaintenanceModule,
     RealtimeModule,

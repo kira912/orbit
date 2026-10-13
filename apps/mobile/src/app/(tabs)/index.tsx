@@ -5,12 +5,13 @@ import { Camera, GeoJSONSource, Layer, Map, Marker, UserLocation, type CameraRef
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeIn, FadeInDown, FadeOut } from "react-native-reanimated";
-import { circlePolygon, type ShareSession } from "@orbit/shared";
+import { circlePolygon, type ShareSession, type Spot, type SpotCategory, type SpotVisibility } from "@orbit/shared";
 import { useCircles } from "../../hooks/useCircles";
 import { usePlaces } from "../../hooks/usePlaces";
 import { useLocationHistory } from "../../hooks/useLocationHistory";
 import { useMeetups } from "../../hooks/useMeetups";
 import { useMapReports } from "../../hooks/useMapReports";
+import { useSpots } from "../../hooks/useSpots";
 import {
   useActiveShareSessions,
   useCircleShareSessions,
@@ -34,11 +35,16 @@ import { useAskLocationFor } from "../../hooks/useAskLocationFor";
 import { useRoute } from "../../hooks/useRoute";
 import { FriendsLayer } from "../../components/FriendsLayer";
 import { MemberSheet } from "../../components/MemberSheet";
+import { FloatingReactions } from "../../components/FloatingReactions";
 import { LiveCards } from "../../components/map/LiveCards";
 import { MapTopBar } from "../../components/map/MapTopBar";
 import { MeetupMarker } from "../../components/map/MeetupMarker";
 import { ReportSheet } from "../../components/map/ReportSheet";
 import { ReportsLayer } from "../../components/map/ReportsLayer";
+import { SpotSheet } from "../../components/map/SpotSheet";
+import { SpotsLayer } from "../../components/map/SpotsLayer";
+import { SpotsFilterBar } from "../../components/map/SpotsFilterBar";
+import { CreateSpotSheet } from "../../components/map/CreateSpotSheet";
 import { RouteCard } from "../../components/map/RouteCard";
 import { useTabBarClearance } from "../../components/TabBar";
 import { AppText, Button, IconButton, Sheet } from "../../components/ui";
@@ -78,6 +84,25 @@ export default function MapScreen() {
   const [pressedPoint, setPressedPoint] = useState<[number, number] | null>(null);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const selectedReport = reports?.find((r) => r.id === selectedReportId) ?? null;
+
+  const [showSpots, setShowSpots] = useState(true);
+  const [selectedSpotCategory, setSelectedSpotCategory] = useState<SpotCategory | null>(null);
+  const [selectedSpotVisibility, setSelectedSpotVisibility] = useState<SpotVisibility | null>(null);
+  const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
+  const [isCreatingSpot, setIsCreatingSpot] = useState(false);
+  const [spotCoordinates, setSpotCoordinates] = useState<[number, number] | null>(null);
+
+  const spotsQuery = useMemo(
+    () => ({
+      circleId: selectedSpotVisibility === "circle" ? circleId ?? undefined : undefined,
+      visibility: selectedSpotVisibility ?? undefined,
+      category: selectedSpotCategory ?? undefined,
+    }),
+    [circleId, selectedSpotVisibility, selectedSpotCategory],
+  );
+
+  const { data: spots } = useSpots(spotsQuery);
+  const selectedSpot = spots?.find((s) => s.id === selectedSpotId) ?? null;
   const focusRequest = useMapFocusStore((s) => s.userId);
   const focusWithRoute = useMapFocusStore((s) => s.withRoute);
   const consumeFocus = useMapFocusStore((s) => s.consume);
@@ -365,6 +390,18 @@ export default function MapScreen() {
               <ReportsLayer reports={reports} selectedId={selectedReportId} onSelect={setSelectedReportId} />
             )}
 
+            {showSpots && spots && spots.length > 0 && (
+              <SpotsLayer
+                spots={spots}
+                selectedId={selectedSpotId}
+                onSelect={(id) => {
+                  setSelectedSpotId(id);
+                  setSelectedUserId(null);
+                  setSelectedReportId(null);
+                }}
+              />
+            )}
+
             {pressedPoint && (
               <Marker id="pressed-point" lngLat={pressedPoint} anchor="bottom">
                 <Animated.View entering={enter.fade()} style={styles.droppedPin}>
@@ -431,7 +468,20 @@ export default function MapScreen() {
         selectedUserId={selectedUserId ?? focusedUserId}
         onOpenCircles={() => router.push("/circles")}
         onSelectMember={focusMember}
-      />
+      >
+        <SpotsFilterBar
+          showSpots={showSpots}
+          onToggleShowSpots={() => setShowSpots((prev) => !prev)}
+          selectedCategory={selectedSpotCategory}
+          onSelectCategory={setSelectedSpotCategory}
+          selectedVisibility={selectedSpotVisibility}
+          onSelectVisibility={setSelectedSpotVisibility}
+          onCreateSpot={() => {
+            setSpotCoordinates(null);
+            setIsCreatingSpot(true);
+          }}
+        />
+      </MapTopBar>
 
       {(noTrajectory || historyUserId) && (
         <Animated.View entering={FadeInDown} exiting={FadeOut} style={styles.banner}>
@@ -515,6 +565,7 @@ export default function MapScreen() {
 
       <MemberSheet
         location={selectedLocation}
+        circleId={circleId ?? undefined}
         email={selectedEmail}
         pictureUrl={selectedMember?.pictureUrl}
         trip={selectedTrip}
@@ -531,6 +582,8 @@ export default function MapScreen() {
           setFocusedUserId(null);
         }}
       />
+
+      <FloatingReactions />
 
       <ReportSheet report={selectedReport} myId={user?.id} onClose={() => setSelectedReportId(null)} />
 
@@ -561,6 +614,17 @@ export default function MapScreen() {
           />
           <Button
             variant="secondary"
+            icon="sparkles"
+            label="Partager une pépite ici"
+            onPress={() => {
+              const pt = pressedPoint!;
+              setPressedPoint(null);
+              setSpotCoordinates(pt);
+              setIsCreatingSpot(true);
+            }}
+          />
+          <Button
+            variant="secondary"
             icon="home"
             label="Enregistrer comme lieu"
             onPress={() => {
@@ -571,6 +635,27 @@ export default function MapScreen() {
           />
         </View>
       </Sheet>
+
+      <SpotSheet
+        spot={selectedSpot}
+        myId={user?.id}
+        onClose={() => setSelectedSpotId(null)}
+        onNavigate={(spot) => {
+          setSelectedSpotId(null);
+          setFollowMe(false);
+          cameraRef.current?.flyTo({ center: [spot.longitude, spot.latitude], zoom: 16, duration: 800 });
+        }}
+      />
+
+      <CreateSpotSheet
+        visible={isCreatingSpot}
+        coordinates={spotCoordinates}
+        circleId={circleId}
+        onClose={() => {
+          setIsCreatingSpot(false);
+          setSpotCoordinates(null);
+        }}
+      />
     </View>
   );
 }

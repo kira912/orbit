@@ -12,6 +12,7 @@ type IconName = ComponentProps<typeof Ionicons>["name"];
 
 export const TAB_ICONS: Record<string, [IconName, IconName]> = {
   index: ["planet", "planet-outline"],
+  discover: ["sparkles", "sparkles-outline"],
   circle: ["people", "people-outline"],
   activity: ["pulse", "pulse-outline"],
   profile: ["person-circle", "person-circle-outline"],

@@ -29,6 +29,10 @@ model User {
   mapReports       MapReport[]
   sentRequests     LocationRequest[] @relation("RequestFrom")
   receivedRequests LocationRequest[] @relation("RequestTo")
+  spots            Spot[]            @relation("SpotCreator")
+  spotLikes        SpotLike[]
+  spotComments     SpotComment[]
+  spotSaved        SpotSaved[]
 }
 
 /// Expo push tokens, one per installed device.
@@ -66,6 +70,7 @@ model Circle {
   meetups       Meetup[]
   locationRequests LocationRequest[]
   mapReports    MapReport[]
+  spots         Spot[]
   createdAt     DateTime       @default(now())
 }
 
@@ -246,4 +251,83 @@ model MapReport {
   resolvedById    String?
 
   @@index([circleId, expiresAt])
+}
+
+enum SpotCategory {
+  viewpoint
+  photo
+  secret_place
+  cafe_bar
+  nature
+  culture
+  food
+  activity
+  chill
+}
+
+enum SpotVisibility {
+  public
+  circle
+}
+
+/// A social point of interest / secret spot shared publicly or within a circle.
+model Spot {
+  id          String         @id @default(uuid())
+  title       String
+  description String?
+  category    SpotCategory   @default(secret_place)
+  visibility  SpotVisibility @default(circle)
+  latitude    Float
+  longitude   Float
+  address     String?
+  tags        String[]       @default([])
+  createdById String
+  createdBy   User           @relation("SpotCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  circleId    String?
+  circle      Circle?        @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  likes       SpotLike[]
+  comments    SpotComment[]
+  savedBy     SpotSaved[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([circleId, visibility])
+  @@index([createdById])
+  @@index([latitude, longitude])
+}
+
+model SpotLike {
+  id        String   @id @default(uuid())
+  spotId    String
+  spot      Spot     @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([spotId, userId])
+  @@index([userId])
+}
+
+model SpotComment {
+  id        String   @id @default(uuid())
+  spotId    String
+  spot      Spot     @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String
+  createdAt DateTime @default(now())
+
+  @@index([spotId, createdAt])
+}
+
+model SpotSaved {
+  id        String   @id @default(uuid())
+  spotId    String
+  spot      Spot     @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([spotId, userId])
+  @@index([userId])
 }

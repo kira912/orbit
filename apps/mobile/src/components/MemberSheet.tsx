@@ -10,6 +10,7 @@ import { formatDistance, formatRelativeTime, isStale } from "../lib/member-displ
 import { formatEta } from "../lib/eta-format";
 import { colors, radius } from "../theme";
 import { AppText, Avatar, Button, PulseDot, Sheet } from "./ui";
+import { TripReactionPicker } from "./TripReactionPicker";
 
 export interface MemberTrip {
   destinationName: string | null;
@@ -18,6 +19,7 @@ export interface MemberTrip {
 
 interface MemberSheetProps {
   location: FriendLocation | null;
+  circleId?: string;
   email?: string;
   pictureUrl?: string | null;
   /** The member's ongoing share, if any. */
@@ -53,6 +55,7 @@ export function MemberSheet({ location, onClose, ...props }: MemberSheetProps) {
 
 function SheetContent({
   location,
+  circleId,
   email,
   pictureUrl,
   trip,
@@ -116,6 +119,10 @@ function SheetContent({
             </AppText>
           )}
         </View>
+      )}
+
+      {circleId && trip && (
+        <TripReactionPicker circleId={circleId} targetUserId={location.userId} />
       )}
 
       {!trip && onAskLocation && (

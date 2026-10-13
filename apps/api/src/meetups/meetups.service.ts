@@ -161,6 +161,15 @@ export class MeetupsService {
     const latestByUser = new Map<string, MeetupRow["sessions"][number]>();
     for (const s of meetup.sessions) latestByUser.set(s.userId, s);
 
+    const arrived = [...latestByUser.values()]
+      .filter((s) => s.status === "arrived" && s.endedAt != null)
+      .sort((a, b) => (a.endedAt?.getTime() ?? 0) - (b.endedAt?.getTime() ?? 0));
+
+    const rankByUser = new Map<string, number>();
+    arrived.forEach((s, idx) => {
+      rankByUser.set(s.userId, idx + 1);
+    });
+
     return {
       id: meetup.id,
       circleId: meetup.circleId,
@@ -178,6 +187,7 @@ export class MeetupsService {
         sessionId: s.id,
         status: s.status,
         endedAt: s.endedAt,
+        arrivalRank: rankByUser.get(s.userId) ?? null,
       })),
     };
   }

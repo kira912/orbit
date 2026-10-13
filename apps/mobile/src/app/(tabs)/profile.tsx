@@ -7,6 +7,8 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCircles } from "../../hooks/useCircles";
 import { useActiveShareSessions, useEnablePublicLink, useStopShareSession } from "../../hooks/useShareSessions";
+import { useGamificationProfile } from "../../hooks/useGamification";
+import { useSpots } from "../../hooks/useSpots";
 import { useAuthStore } from "../../lib/auth-store";
 import { getNotificationPermission, pushSupported, registerForPushNotifications } from "../../lib/notifications";
 import { sharePublicLink } from "../../lib/sharing";
@@ -22,6 +24,9 @@ export default function ProfileScreen() {
   const logout = useAuthStore((s) => s.logout);
   const { data: circles } = useCircles();
   const { data: sessions } = useActiveShareSessions();
+  const { data: gamification } = useGamificationProfile();
+  const { data: mySpots } = useSpots({ mySpotsOnly: true });
+  const { data: savedSpots } = useSpots({ savedOnly: true });
   const stopSession = useStopShareSession();
   const enableLink = useEnablePublicLink();
   const notificationsGranted = useNotificationPermission();
@@ -61,6 +66,120 @@ export default function ProfileScreen() {
       </LinearGradient>
 
       <View style={styles.body}>
+        {gamification && (
+          <Animated.View entering={FadeInDown.delay(50).duration(400)} style={styles.section}>
+            <AppText variant="label" color={colors.muted}>
+              Niveau & Progression
+            </AppText>
+            <Card style={styles.gamificationCard}>
+              <View style={styles.levelRow}>
+                <View style={styles.levelBadge}>
+                  <Ionicons name="sparkles" size={16} color={colors.primary} />
+                  <AppText variant="label" color={colors.primary}>
+                    Niveau {gamification.level}
+                  </AppText>
+                </View>
+                <AppText variant="caption" color={colors.muted}>
+                  {gamification.xp} / {gamification.nextLevelXp} XP
+                </AppText>
+              </View>
+
+              <AppText variant="title">{gamification.levelTitle}</AppText>
+
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    { width: `${gamification.currentLevelProgress}%` },
+                  ]}
+                />
+              </View>
+
+              <View style={styles.statsGrid}>
+                <View style={styles.statBox}>
+                  <AppText style={styles.statEmoji}>🚗</AppText>
+                  <AppText variant="title">{gamification.stats.totalTrips}</AppText>
+                  <AppText variant="caption" color={colors.muted}>Trajets</AppText>
+                </View>
+                <View style={styles.statBox}>
+                  <AppText style={styles.statEmoji}>🛡️</AppText>
+                  <AppText variant="title">{gamification.stats.safeTripsStreak}</AppText>
+                  <AppText variant="caption" color={colors.muted}>Série safe</AppText>
+                </View>
+                <View style={styles.statBox}>
+                  <AppText style={styles.statEmoji}>📍</AppText>
+                  <AppText variant="title">{gamification.stats.placesVisited}</AppText>
+                  <AppText variant="caption" color={colors.muted}>Lieux</AppText>
+                </View>
+                <View style={styles.statBox}>
+                  <AppText style={styles.statEmoji}>🥇</AppText>
+                  <AppText variant="title">{gamification.stats.meetupPodiums}</AppText>
+                  <AppText variant="caption" color={colors.muted}>Podiums</AppText>
+                </View>
+              </View>
+            </Card>
+          </Animated.View>
+        )}
+
+        {gamification && gamification.badges.length > 0 && (
+          <Section title="Badges & Exploits" delay={70}>
+            <View style={styles.badgesList}>
+              {gamification.badges.map((badge) => {
+                const isUnlocked = badge.unlockedAt != null;
+                return (
+                  <View
+                    key={badge.id}
+                    style={[
+                      styles.badgeCard,
+                      !isUnlocked && styles.badgeCardLocked,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.badgeIconWrap,
+                        isUnlocked ? styles.badgeIconUnlocked : styles.badgeIconLocked,
+                      ]}
+                    >
+                      <Ionicons
+                        name={badge.icon as any}
+                        size={22}
+                        color={isUnlocked ? colors.primary : colors.muted}
+                      />
+                    </View>
+                    <View style={styles.flex}>
+                      <View style={styles.badgeHeader}>
+                        <AppText variant="bodyStrong" numberOfLines={1}>
+                          {badge.title}
+                        </AppText>
+                        {isUnlocked && (
+                          <View style={styles.unlockedTag}>
+                            <Ionicons name="checkmark" size={12} color={colors.success} />
+                          </View>
+                        )}
+                      </View>
+                      <AppText variant="caption" color={colors.muted} numberOfLines={2}>
+                        {badge.description}
+                      </AppText>
+                      {!isUnlocked && badge.maxProgress > 1 && (
+                        <View style={styles.badgeProgressTrack}>
+                          <View
+                            style={[
+                              styles.badgeProgressBar,
+                              {
+                                width: `${Math.round((badge.progress / badge.maxProgress) * 100)}%`,
+                              },
+                            ]}
+                          />
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </Section>
+        )}
+
         <Section title="Mes partages en cours" delay={80}>
           {sessions && sessions.length > 0 ? (
             sessions.map((session) => (
@@ -103,6 +222,28 @@ export default function ProfileScreen() {
               Tu ne partages pas ta position en ce moment.
             </AppText>
           )}
+        </Section>
+
+        <Section title="Mes Pépites & Explorations" delay={110}>
+          <View style={styles.statsGrid}>
+            <View style={styles.statBox}>
+              <AppText style={styles.statEmoji}>✨</AppText>
+              <AppText variant="title">{mySpots?.length ?? 0}</AppText>
+              <AppText variant="caption" color={colors.muted}>Partagées</AppText>
+            </View>
+            <View style={styles.statBox}>
+              <AppText style={styles.statEmoji}>🔖</AppText>
+              <AppText variant="title">{savedSpots?.length ?? 0}</AppText>
+              <AppText variant="caption" color={colors.muted}>Enregistrées</AppText>
+            </View>
+          </View>
+          <Button
+            variant="secondary"
+            icon="sparkles"
+            label="Explorer toutes les pépites"
+            onPress={() => router.push("/(tabs)/discover")}
+            style={{ marginTop: 8 }}
+          />
         </Section>
 
         <Section title="Notifications" delay={140}>
@@ -231,6 +372,108 @@ const styles = StyleSheet.create({
   body: { padding: 16, gap: 20 },
   section: { gap: 10 },
   card: { gap: 16 },
+  gamificationCard: {
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
+  },
+  levelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  levelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bg,
+    overflow: "hidden",
+    marginVertical: 4,
+  },
+  progressBar: {
+    height: "100%",
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+  },
+  statBox: {
+    alignItems: "center",
+    flex: 1,
+    gap: 2,
+  },
+  statEmoji: {
+    fontSize: 20,
+    marginBottom: 2,
+  },
+  badgesList: {
+    gap: 10,
+  },
+  badgeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    borderRadius: radius.lg,
+    backgroundColor: colors.bg,
+  },
+  badgeCardLocked: {
+    opacity: 0.7,
+  },
+  badgeIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeIconUnlocked: {
+    backgroundColor: colors.primarySoft,
+  },
+  badgeIconLocked: {
+    backgroundColor: "rgba(100, 116, 139, 0.12)",
+  },
+  badgeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  unlockedTag: {
+    width: 18,
+    height: 18,
+    borderRadius: radius.pill,
+    backgroundColor: colors.successSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeProgressTrack: {
+    height: 4,
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(100, 116, 139, 0.15)",
+    overflow: "hidden",
+    marginTop: 6,
+  },
+  badgeProgressBar: {
+    height: "100%",
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+  },
   session: { flexDirection: "row", alignItems: "center", gap: 10 },
   sessionIcon: {
     width: 38,

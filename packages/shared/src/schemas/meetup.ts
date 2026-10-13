@@ -11,6 +11,7 @@ export const meetupParticipantSchema = z.object({
   sessionId: z.string().uuid(),
   status: shareSessionStatusSchema,
   endedAt: z.coerce.date().nullable(),
+  arrivalRank: z.number().int().positive().nullable().optional(),
 });
 export type MeetupParticipant = z.infer<typeof meetupParticipantSchema>;
 

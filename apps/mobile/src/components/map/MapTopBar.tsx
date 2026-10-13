@@ -15,10 +15,20 @@ interface MapTopBarProps {
   selectedUserId: string | null;
   onOpenCircles: () => void;
   onSelectMember: (userId: string) => void;
+  children?: React.ReactNode;
 }
 
 /** Circle switcher and a strip of the members, floating over the top of the map. */
-export function MapTopBar({ circle, myId, locations, now, selectedUserId, onOpenCircles, onSelectMember }: MapTopBarProps) {
+export function MapTopBar({
+  circle,
+  myId,
+  locations,
+  now,
+  selectedUserId,
+  onOpenCircles,
+  onSelectMember,
+  children,
+}: MapTopBarProps) {
   const insets = useSafeAreaInsets();
   const others = circle?.members.filter((m) => m.userId !== myId) ?? [];
 
@@ -74,6 +84,8 @@ export function MapTopBar({ circle, myId, locations, now, selectedUserId, onOpen
           })}
         </ScrollView>
       )}
+
+      {children}
     </View>
   );
 }

@@ -50,6 +50,7 @@ export default function TabsLayout() {
         }}
       >
         <Tabs.Screen name="index" options={{ title: "Carte" }} />
+        <Tabs.Screen name="discover" options={{ title: "Pépites" }} />
         <Tabs.Screen name="circle" options={{ title: "Cercle" }} />
         <Tabs.Screen name="activity" options={{ title: "Activité" }} />
         <Tabs.Screen name="profile" options={{ title: "Profil" }} />

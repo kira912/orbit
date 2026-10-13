@@ -19,6 +19,7 @@ export const LOCATION_EVENTS = {
   SessionAlert: "realtime.session-alert",
   LocationRequestUpdated: "realtime.location-request-updated",
   MapReportChanged: "realtime.map-report-changed",
+  SpotChanged: "realtime.spot-changed",
 } as const;
 
 export type FriendLocationUpdatedEvent = FriendLocation;
@@ -90,4 +91,13 @@ export interface MapReportChangedEvent {
   change: "created" | "confirmed" | "resolved";
   actorId: string;
   actorName: string;
+}
+
+export interface SpotChangedEvent {
+  spotId: string;
+  circleId?: string | null;
+  change: "created" | "liked" | "commented" | "deleted";
+  userId: string;
+  displayName: string;
+  title: string;
 }

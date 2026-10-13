@@ -155,9 +155,17 @@ export default function MeetupScreen() {
                 </View>
                 {p.status === "arrived" ? (
                   <View style={[styles.status, { backgroundColor: colors.successSoft }]}>
-                    <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                    {p.arrivalRank === 1 ? (
+                      <AppText style={styles.rankEmoji}>🥇</AppText>
+                    ) : p.arrivalRank === 2 ? (
+                      <AppText style={styles.rankEmoji}>🥈</AppText>
+                    ) : p.arrivalRank === 3 ? (
+                      <AppText style={styles.rankEmoji}>🥉</AppText>
+                    ) : (
+                      <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                    )}
                     <AppText variant="bodyStrong" color={colors.success} style={styles.statusText}>
-                      Là
+                      {p.arrivalRank === 1 ? "1er !" : p.arrivalRank ? `${p.arrivalRank}e` : "Là"}
                     </AppText>
                   </View>
                 ) : p.status === "active" && eta ? (
@@ -273,6 +281,7 @@ const styles = StyleSheet.create({
   },
   status: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5 },
   statusText: { fontSize: 13 },
+  rankEmoji: { fontSize: 14 },
   footer: {
     position: "absolute",
     left: 0,

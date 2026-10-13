@@ -88,15 +88,15 @@ export const shadows = {
 };
 
 /**
- * Shared spring configs, so motion feels the same everywhere. Damping ratios
- * stay close to 1: things settle with at most a hint of overshoot instead of
- * bouncing (ratio = damping / (2 * sqrt(stiffness * mass))).
+ * Shared spring configs, so motion feels smooth and stable everywhere. Damping ratios
+ * are critically damped (>= 1.0) so sheets and containers settle cleanly
+ * without bouncing or oscillating (ratio = damping / (2 * sqrt(stiffness * mass))).
  */
 export const springs = {
-  /** ~0.9: indicators, sheets following the finger. */
-  snappy: { damping: 24, stiffness: 260, mass: 0.7 },
-  /** ~0.95: sheets opening. */
-  gentle: { damping: 22, stiffness: 140 },
-  /** ~0.8: press release, a touch of life without a visible bounce. */
-  bouncy: { damping: 21, stiffness: 180 },
+  /** Snappy and direct: indicators, sheets following the finger, zero bounce. */
+  snappy: { damping: 30, stiffness: 300, mass: 0.75 },
+  /** Smooth and clean: sheets opening, fluid deceleration without bounce. */
+  gentle: { damping: 32, stiffness: 220, mass: 1 },
+  /** Subtle touch feedback: press release without visible oscillation. */
+  bouncy: { damping: 28, stiffness: 220, mass: 1 },
 } as const;

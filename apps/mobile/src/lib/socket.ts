@@ -14,6 +14,7 @@ import { useAuthStore } from "./auth-store";
 import { useToastStore } from "../components/ui/Toaster";
 import { colors } from "../theme";
 import { REPORT_KINDS } from "./report-kinds";
+import { useReactionStore } from "./reactions-store";
 
 let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 
@@ -70,7 +71,7 @@ export async function connectRealtime(): Promise<void> {
 
   socket.on(WS_EVENTS.SessionEnded, (payload) => {
     useSessionEtaStore.getState().clear(payload.sessionId);
-    refresh("share-sessions", "activity", "meetups");
+    refresh("share-sessions", "activity", "meetups", "gamification");
     if (payload.status !== "arrived") return;
     toast(
       isMe(payload.userId)
@@ -114,8 +115,24 @@ export async function connectRealtime(): Promise<void> {
     toast({ title: `${payload.displayName} signale ${meta.phrase}`, body: "Regarde sur la carte", icon: meta.icon, color: meta.color });
   });
 
-  socket.on(WS_EVENTS.MeetupUpdated, () => refresh("meetups", "activity"));
-  socket.on(WS_EVENTS.CircleUpdated, () => refresh("circles", "activity"));
+  socket.on(WS_EVENTS.SpotsUpdated, (payload) => {
+    refresh("spots", "activity");
+    if (payload.change === "created" && !isMe(payload.userId)) {
+      toast({
+        title: `${payload.displayName} a partagé un spot : ${payload.title}`,
+        body: "Découvre cette nouvelle pépite sur la carte !",
+        icon: "sparkles",
+        color: colors.primary,
+      });
+    }
+  });
+
+  socket.on(WS_EVENTS.MeetupUpdated, () => refresh("meetups", "activity", "gamification"));
+  socket.on(WS_EVENTS.CircleUpdated, () => refresh("circles", "activity", "gamification"));
+
+  socket.on(WS_EVENTS.TripReaction, (payload) => {
+    useReactionStore.getState().addReaction(payload);
+  });
 }
 
 export function disconnectRealtime(): void {
@@ -126,6 +143,10 @@ export function disconnectRealtime(): void {
 /** Fire-and-forget: the REST /locations/ping fallback covers delivery when the socket is down. */
 export function sendLocationUpdate(input: LocationPingInput): void {
   socket?.emit(WS_EVENTS.LocationUpdate, input);
+}
+
+export function sendTripReaction(circleId: string, targetUserId: string, emoji: string): void {
+  socket?.emit(WS_EVENTS.SendReaction, { circleId, targetUserId, emoji });
 }
 
 export function isRealtimeConnected(): boolean {

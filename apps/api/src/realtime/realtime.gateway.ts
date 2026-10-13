@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
@@ -9,15 +10,17 @@ import {
   WebSocketServer,
 } from "@nestjs/websockets";
 import type { Server, Socket } from "socket.io";
-import { locationPingInputSchema, WS_EVENTS } from "@orbit/shared";
+import { locationPingInputSchema, sendReactionInputSchema, WS_EVENTS, type TripReaction } from "@orbit/shared";
 import { CirclesService } from "../circles/circles.service";
 import { LocationsService } from "../locations/locations.service";
+import { PrismaService } from "../prisma/prisma.service";
 import type {
   CircleMemberJoinedEvent,
   FriendLocationUpdatedEvent,
   GeofenceEventOccurredEvent,
   LocationRequestUpdatedEvent,
   MapReportChangedEvent,
+  SpotChangedEvent,
   MeetupUpdatedEvent,
   SessionAlertEvent,
   SessionEndedEvent,
@@ -48,6 +51,7 @@ export class RealtimeGateway implements OnGatewayConnection {
     private readonly config: ConfigService,
     private readonly circles: CirclesService,
     private readonly locations: LocationsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async handleConnection(socket: Socket): Promise<void> {
@@ -84,6 +88,39 @@ export class RealtimeGateway implements OnGatewayConnection {
     }
 
     await this.locations.recordPing(userId, result.data);
+  }
+
+  @SubscribeMessage(WS_EVENTS.SendReaction)
+  async handleSendReaction(socket: Socket, rawPayload: unknown): Promise<void> {
+    const userId = socket.data.userId as string | undefined;
+    if (!userId) return;
+
+    const result = sendReactionInputSchema.safeParse(rawPayload);
+    if (!result.success) {
+      this.logger.warn(`Rejected malformed reaction from ${userId}`);
+      return;
+    }
+
+    const { circleId, targetUserId, emoji } = result.data;
+    await this.circles.assertMembership(userId, circleId);
+
+    const sender = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { displayName: true },
+    });
+    if (!sender) return;
+
+    const reaction: TripReaction = {
+      id: randomUUID(),
+      circleId,
+      fromUserId: userId,
+      fromDisplayName: sender.displayName,
+      targetUserId,
+      emoji,
+      timestamp: Date.now(),
+    };
+
+    this.server.to(circleRoom(circleId)).emit(WS_EVENTS.TripReaction, reaction);
   }
 
   @OnEvent(LOCATION_EVENTS.FriendLocationUpdated)
@@ -143,6 +180,15 @@ export class RealtimeGateway implements OnGatewayConnection {
       displayName: actorName,
       kind: report.kind,
     });
+  }
+
+  @OnEvent(LOCATION_EVENTS.SpotChanged)
+  handleSpotChanged(payload: SpotChangedEvent): void {
+    if (payload.circleId) {
+      this.server.to(circleRoom(payload.circleId)).emit(WS_EVENTS.SpotsUpdated, payload);
+    } else {
+      this.server.emit(WS_EVENTS.SpotsUpdated, payload);
+    }
   }
 
   @OnEvent(LOCATION_EVENTS.CircleMemberJoined)
