@@ -1,10 +1,11 @@
 import "../tasks/background-location-task";
 import "../lib/web-polyfills";
 import { useEffect } from "react";
-import { StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { Analytics } from "@vercel/analytics/react";
 import {
   PlusJakartaSans_500Medium,
   PlusJakartaSans_600SemiBold,
@@ -53,6 +54,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
+          {Platform.OS === "web" && <Analytics />}
           <StatusBar style={authenticated ? "dark" : "light"} />
           {authenticated && <PushNotifications />}
           {authenticated && <PendingInvite />}
